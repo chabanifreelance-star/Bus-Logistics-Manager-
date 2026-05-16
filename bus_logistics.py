@@ -12,10 +12,41 @@ DATA_FILE                = "bus_data.json"
 AUDIT_FILE               = "audit_log.json"
 DEFAULT_CAPACITY         = 50
 SUPERADMIN_USERNAME      = "admin"
-DEFAULT_SUPERADMIN_HASH  = hashlib.sha256("Admin@2024!".encode()).hexdigest()
 SESSION_TIMEOUT_MINUTES  = 30
 MAX_LOGIN_ATTEMPTS       = 5
 LOCKOUT_DURATION_MINUTES = 15
+
+# ─── Incident / Status definitions ───────────────────────────────────────────
+# Each status: (emoji, label_en, label_ar, css_class)
+STATUSES = {
+    "present":  ("🟢", "Present",  "حاضر",    "status-present"),
+    "absent":   ("🔴", "Absent",   "غائب",    "status-absent"),
+    "sick":     ("🟡", "Sick",     "مريض",    "status-sick"),
+    "arrested": ("🟠", "Arrested", "موقوف",   "status-arrested"),
+    "missing":  ("⚫", "Missing",  "مفقود",   "status-missing"),
+}
+
+def status_emoji(key):
+    return STATUSES.get(key, STATUSES["absent"])[0]
+
+def status_label(key, lang="en"):
+    entry = STATUSES.get(key, STATUSES["absent"])
+    return entry[1] if lang == "en" else entry[2]
+
+def status_css(key):
+    return STATUSES.get(key, STATUSES["absent"])[3]
+
+# Map old boolean → new status for backwards-compat
+def migrate_rc_state(rc_dict):
+    """Convert {name: bool} → {name: 'present'|'absent'}"""
+    out = {}
+    for k, v in rc_dict.items():
+        if isinstance(v, bool):
+            out[k] = "present" if v else "absent"
+        else:
+            out[k] = v
+    return out
+
 
 st.set_page_config(
     page_title="Bus Logistics",
@@ -31,6 +62,14 @@ T = {
         "app_subtitle":      "Fleet management",
         "login_title":       "Admin Login",
         "login_subtitle":    "Secure access required",
+        "first_run_title":   "First-Time Setup",
+        "first_run_sub":     "Create your admin password to get started",
+        "setup_new_pass":    "New Password",
+        "setup_confirm":     "Confirm Password",
+        "setup_btn":         "Create Account",
+        "setup_done":        "Admin account created. Please sign in.",
+        "setup_mismatch":    "Passwords do not match.",
+        "setup_short":       "Password must be at least 8 characters.",
         "username":          "Username",
         "password":          "Password",
         "login_btn":         "Sign In",
@@ -106,14 +145,14 @@ T = {
         "page_travel":       "Travel",
         "page_settings":     "Settings",
         "rollcall_title":    "Roll Call",
-        "rollcall_subtitle": "Mark each person as boarded",
+        "rollcall_subtitle": "Tap each person to set their status",
         "select_bus_rc":     "Select bus",
-        "boarded":           "Boarded",
-        "not_boarded":       "Not Boarded",
-        "mark_all_boarded":  "✅ Mark All",
+        "boarded":           "Present",
+        "not_boarded":       "Not Marked",
+        "mark_all_boarded":  "✅ Mark All Present",
         "reset_rollcall":    "🔄 Reset",
-        "rollcall_progress": "{b} / {t} boarded",
-        "rollcall_complete": "🎉 All aboard!",
+        "rollcall_progress": "{b} / {t} present",
+        "rollcall_complete": "🎉 All accounted for!",
         "rc_export":         "⬇ Export CSV",
         "rc_search_label":   "Search members in this bus…",
         "settings_title":    "Settings",
@@ -135,7 +174,6 @@ T = {
         "fleet_overview":    "Fleet Overview",
         "attempts_left":     "{n} attempt(s) left before lockout.",
         "lang_label":        "Language",
-        # Multi-admin
         "admin_mgmt":        "Admin Management",
         "add_admin":         "Add Admin",
         "new_admin_user":    "New username",
@@ -148,11 +186,10 @@ T = {
         "cannot_remove_self":"You cannot remove yourself.",
         "admins_list":       "Admins",
         "superadmin_badge":  "SUPERADMIN",
-        # Travel
         "travel_title":      "Travel Mode",
         "travel_subtitle":   "Pre-departure checklist & overview",
         "depart_summary":    "Departure Summary",
-        "absent_members":    "Absent Members",
+        "absent_members":    "Absent / Incidents",
         "checklist":         "Pre-Departure Checklist",
         "checklist_items":   [
             "Headcount confirmed",
@@ -172,12 +209,22 @@ T = {
         "save_trip_info":    "Save Trip Info",
         "trip_info_saved":   "Trip info saved.",
         "absent_in":         "Absent in {b}",
+        "incident_summary":  "Incident Summary",
+        "tap_to_cycle":      "Tap to cycle status",
     },
     "ar": {
         "app_title":         "مدير النقل",
         "app_subtitle":      "إدارة الأسطول",
         "login_title":       "تسجيل دخول المدير",
         "login_subtitle":    "يُشترط الوصول الآمن",
+        "first_run_title":   "الإعداد الأوّلي",
+        "first_run_sub":     "أنشئ كلمة مرور المدير للبدء",
+        "setup_new_pass":    "كلمة المرور الجديدة",
+        "setup_confirm":     "تأكيد كلمة المرور",
+        "setup_btn":         "إنشاء الحساب",
+        "setup_done":        "تم إنشاء حساب المدير. يرجى تسجيل الدخول.",
+        "setup_mismatch":    "كلمتا المرور غير متطابقتين.",
+        "setup_short":       "يجب أن تتكون كلمة المرور من 8 أحرف على الأقل.",
         "username":          "اسم المستخدم",
         "password":          "كلمة المرور",
         "login_btn":         "تسجيل الدخول",
@@ -253,14 +300,14 @@ T = {
         "page_travel":       "السفر",
         "page_settings":     "الإعدادات",
         "rollcall_title":    "التحقق من الصعود",
-        "rollcall_subtitle": "حدد كل شخص صعد الحافلة",
+        "rollcall_subtitle": "اضغط على كل شخص لتغيير حالته",
         "select_bus_rc":     "اختر الحافلة",
-        "boarded":           "صعد",
-        "not_boarded":       "لم يصعد",
-        "mark_all_boarded":  "✅ تحديد الجميع",
+        "boarded":           "حاضر",
+        "not_boarded":       "غير محدد",
+        "mark_all_boarded":  "✅ تحديد الجميع حاضرين",
         "reset_rollcall":    "🔄 إعادة تعيين",
-        "rollcall_progress": "{b} / {t} صعدوا",
-        "rollcall_complete": "🎉 الجميع على متن الحافلة!",
+        "rollcall_progress": "{b} / {t} حاضر",
+        "rollcall_complete": "🎉 الجميع محاسبون!",
         "rc_export":         "⬇ تصدير CSV",
         "rc_search_label":   "ابحث عن الأعضاء في هذه الحافلة…",
         "settings_title":    "الإعدادات",
@@ -282,7 +329,6 @@ T = {
         "fleet_overview":    "نظرة عامة على الأسطول",
         "attempts_left":     "{n} محاولة متبقية قبل القفل.",
         "lang_label":        "اللغة",
-        # Multi-admin
         "admin_mgmt":        "إدارة المديرين",
         "add_admin":         "إضافة مدير",
         "new_admin_user":    "اسم المستخدم الجديد",
@@ -295,11 +341,10 @@ T = {
         "cannot_remove_self":"لا يمكنك حذف نفسك.",
         "admins_list":       "المديرون",
         "superadmin_badge":  "المدير الرئيسي",
-        # Travel
         "travel_title":      "وضع السفر",
         "travel_subtitle":   "قائمة التحقق قبل المغادرة",
         "depart_summary":    "ملخص المغادرة",
-        "absent_members":    "الأعضاء الغائبون",
+        "absent_members":    "الغائبون / الحوادث",
         "checklist":         "قائمة التحقق قبل المغادرة",
         "checklist_items":   [
             "تم تأكيد العدد",
@@ -319,6 +364,8 @@ T = {
         "save_trip_info":    "حفظ معلومات الرحلة",
         "trip_info_saved":   "تم حفظ معلومات الرحلة.",
         "absent_in":         "غائب في {b}",
+        "incident_summary":  "ملخص الحوادث",
+        "tap_to_cycle":      "اضغط للتغيير",
     },
 }
 
@@ -345,6 +392,8 @@ def inject_css(is_rtl: bool):
     --green-soft: #66bb6a;
     --green-glow: rgba(46,125,50,.25);
     --gold:       #f9a825;
+    --orange:     #e65100;
+    --orange-soft:#ff8a65;
     --blue:       #1565c0;
     --blue-soft:  #64b5f6;
     --white:      #ede8dc;
@@ -469,6 +518,7 @@ button[kind="header"] {{ color: var(--white) !important; }}
 .stAlert {{ border-radius: var(--radius-sm) !important; }}
 hr {{ border-color: var(--border) !important; margin: 10px 0 !important; }}
 
+/* ── Stat cards ── */
 .stat-card {{
     background: var(--surface); border: 1px solid var(--border);
     border-radius: var(--radius); padding: 18px 14px;
@@ -490,6 +540,7 @@ hr {{ border-color: var(--border) !important; margin: 10px 0 !important; }}
 .stat-gold  .stat-num {{ color: var(--gold)        !important; }}
 .stat-grid {{ display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 1rem; }}
 
+/* ── Bus card ── */
 .bus-card {{
     background: linear-gradient(135deg, var(--surface), var(--surface2));
     border: 1px solid var(--border);
@@ -506,6 +557,7 @@ hr {{ border-color: var(--border) !important; margin: 10px 0 !important; }}
 .bus-count {{ font-family: 'Barlow Condensed', sans-serif; font-size: 2.4rem; font-weight: 700; color: var(--red); line-height: 1; }}
 .bus-sub   {{ font-size: .72rem; color: var(--muted); letter-spacing: 1px; }}
 
+/* ── Generic badge ── */
 .badge {{
     display: inline-block; padding: 2px 8px;
     border-radius: 4px; font-size: .68rem;
@@ -516,6 +568,25 @@ hr {{ border-color: var(--border) !important; margin: 10px 0 !important; }}
 .badge-ok   {{ background: rgba(46,125,50,.18);  color: var(--green-soft); border: 1px solid var(--green); }}
 .badge-warn {{ background: rgba(249,168,37,.18); color: var(--gold); border: 1px solid var(--gold); }}
 .badge-gold {{ background: rgba(249,168,37,.18); color: var(--gold); border: 1px solid var(--gold); }}
+
+/* ── Incident / status badges ── */
+.status-present  {{ background:rgba(46,125,50,.18);  color:var(--green-soft);  border:1px solid var(--green);  }}
+.status-absent   {{ background:rgba(211,47,47,.18);  color:var(--red-soft);    border:1px solid var(--red);    }}
+.status-sick     {{ background:rgba(249,168,37,.18); color:var(--gold);        border:1px solid var(--gold);   }}
+.status-arrested {{ background:rgba(230,81,0,.18);   color:var(--orange-soft); border:1px solid var(--orange); }}
+.status-missing  {{ background:rgba(66,66,66,.3);    color:#aaa;               border:1px solid #555;          }}
+
+/* ── Roll-call big tap button ── */
+.rc-tap-btn {{
+    width:100%; padding:14px 10px; border-radius:var(--radius-sm);
+    border:1px solid var(--border2); background:var(--surface2);
+    cursor:pointer; transition:all .15s; text-align:left;
+    display:flex; align-items:center; gap:10px; margin-bottom:6px;
+}}
+.rc-tap-btn:hover {{ background:var(--surface3); border-color:var(--red); }}
+.rc-tap-name  {{ font-size:.95rem; font-weight:500; flex:1; }}
+.rc-tap-role  {{ font-size:.72rem; color:var(--muted2); }}
+.rc-tap-phone {{ font-size:.72rem; color:var(--blue-soft); }}
 
 .role-tag {{
     display: inline-block; padding: 1px 7px; border-radius: 3px;
@@ -634,6 +705,18 @@ hr {{ border-color: var(--border) !important; margin: 10px 0 !important; }}
     font-size: .88rem;
 }}
 
+/* incident summary strip */
+.inc-strip {{
+    display:flex; gap:6px; flex-wrap:wrap; margin:4px 0 8px;
+}}
+.inc-pill {{
+    display:inline-flex; align-items:center; gap:4px;
+    padding:3px 9px; border-radius:20px; font-size:.72rem;
+    font-family:'Barlow Condensed',sans-serif; font-weight:600;
+    border:1px solid var(--border2); background:var(--surface2);
+    color:var(--muted2);
+}}
+
 @media (max-width: 768px) {{
     .page-title {{ font-size: 1.15rem !important; letter-spacing: .5px !important; }}
     .page-sub, .page-badge {{ display: none; }}
@@ -665,15 +748,29 @@ def verify_password(pw: str, hashed: str) -> bool:
     return hmac.compare_digest(hash_password(pw), hashed)
 
 
+# ─── Data persistence ─────────────────────────────────────────────────────────
+def load_data() -> dict:
+    if os.path.exists(DATA_FILE):
+        try:
+            with open(DATA_FILE, encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return {"buses": {}, "capacity": {}, "admins": {}}
+
+def save_data(d: dict):
+    with open(DATA_FILE, "w", encoding="utf-8") as f:
+        json.dump(d, f, indent=2, ensure_ascii=False)
+
+def is_first_run(data: dict) -> bool:
+    """True if no admin password has ever been set (fresh install)."""
+    admins = data.get("admins", {})
+    return SUPERADMIN_USERNAME not in admins
+
+
 # ─── Admin helpers ────────────────────────────────────────────────────────────
 def get_admins(data: dict) -> dict:
-    """Returns {username: pw_hash}. Always includes superadmin."""
-    admins = data.setdefault("admins", {})
-    if SUPERADMIN_USERNAME not in admins:
-        # Migrate: pull existing custom hash or default
-        stored = st.session_state.get("admin_pw_hash", DEFAULT_SUPERADMIN_HASH)
-        admins[SUPERADMIN_USERNAME] = stored
-    return admins
+    return data.setdefault("admins", {})
 
 def is_superadmin() -> bool:
     return st.session_state.get("current_user") == SUPERADMIN_USERNAME
@@ -786,20 +883,7 @@ def load_audit() -> list:
     return []
 
 
-# ─── Data persistence ─────────────────────────────────────────────────────────
-def load_data() -> dict:
-    if os.path.exists(DATA_FILE):
-        try:
-            with open(DATA_FILE, encoding="utf-8") as f:
-                return json.load(f)
-        except Exception:
-            pass
-    return {"buses": {}, "capacity": {}, "admins": {}}
-
-def save_data(d: dict):
-    with open(DATA_FILE, "w", encoding="utf-8") as f:
-        json.dump(d, f, indent=2, ensure_ascii=False)
-
+# ─── Misc helpers ─────────────────────────────────────────────────────────────
 def all_members_flat(buses: dict) -> list:
     rows = []
     for bname, members in buses.items():
@@ -822,6 +906,24 @@ def role_cls(role: str) -> str:
         return "role-tag role-driver"
     return "role-tag"
 
+# Status cycle order: absent → present → sick → arrested → missing → absent
+STATUS_CYCLE = ["absent", "present", "sick", "arrested", "missing"]
+
+def next_status(current: str) -> str:
+    try:
+        idx = STATUS_CYCLE.index(current)
+    except ValueError:
+        idx = 0
+    return STATUS_CYCLE[(idx + 1) % len(STATUS_CYCLE)]
+
+def rc_bus_counts(members, rc):
+    """Returns dict {status_key: count}."""
+    counts = {k: 0 for k in STATUSES}
+    for m in members:
+        s = rc.get(m["name"], "absent")
+        counts[s] = counts.get(s, 0) + 1
+    return counts
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # INITIALISE
@@ -834,9 +936,55 @@ if "data" not in st.session_state:
 data     = st.session_state.data
 buses    = data.setdefault("buses", {})
 capacity = data.setdefault("capacity", {})
-admins   = get_admins(data)  # ensures admins dict is initialised
+admins   = get_admins(data)
 
 inject_css(is_ar())
+
+# ─── Migrate any old boolean rollcall values to status strings ────────────────
+for bkey in list(st.session_state.rollcall_state.keys()):
+    st.session_state.rollcall_state[bkey] = migrate_rc_state(
+        st.session_state.rollcall_state[bkey]
+    )
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# FIRST-RUN SETUP  (no admin password stored yet)
+# ═══════════════════════════════════════════════════════════════════════════════
+if is_first_run(data):
+    top_cols = st.columns([6, 1])
+    with top_cols[1]:
+        if st.button(t("toggle_lang"), key="lang_setup"):
+            st.session_state.lang = "ar" if st.session_state.lang == "en" else "en"
+            st.rerun()
+
+    st.markdown("<br><br>", unsafe_allow_html=True)
+    _, col, _ = st.columns([1, 1.3, 1])
+    with col:
+        st.markdown(f"""
+        <div class="login-card">
+            <div style="text-align:center;font-size:2.6rem;margin-bottom:8px">🔐</div>
+            <div class="login-title">{t('first_run_title')}</div>
+            <div class="login-sub">{t('first_run_sub')}</div>
+        </div>""", unsafe_allow_html=True)
+
+        new_pw   = st.text_input(t("setup_new_pass"),  type="password", key="fr_new")
+        conf_pw  = st.text_input(t("setup_confirm"),   type="password", key="fr_conf")
+
+        if st.button(t("setup_btn"), use_container_width=True, key="fr_btn"):
+            if len(new_pw) < 8:
+                st.error(t("setup_short"))
+            elif new_pw != conf_pw:
+                st.error(t("setup_mismatch"))
+            else:
+                admins[SUPERADMIN_USERNAME] = hash_password(new_pw)
+                save_data(data)
+                log_audit("SETUP", "Superadmin password created on first run")
+                st.success(t("setup_done"))
+                st.rerun()
+
+        st.markdown('<div style="text-align:center;margin-top:18px;font-size:.68rem;color:#3a3a3a">🔒 Bus Logistics — First-Run Setup</div>', unsafe_allow_html=True)
+    st.stop()
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # LOGIN SCREEN
@@ -885,7 +1033,6 @@ if not check_session():
 # AUTHENTICATED — SIDEBAR
 # ═══════════════════════════════════════════════════════════════════════════════
 with st.sidebar:
-    # Branding
     st.markdown(f"""
     <div class="sidebar-brand">
         <div class="sidebar-brand-icon">🚌</div>
@@ -983,7 +1130,7 @@ with st.sidebar:
 
     # Session / Logout
     user_badge = f'<span class="badge badge-gold">{t("superadmin_badge")}</span>' if is_superadmin() else ""
-    with st.expander(f"👤 {current_user()} {user_badge}", expanded=False):
+    with st.expander(f"👤 {current_user()}", expanded=False):
         st.caption(t("welcome", u=current_user()))
         st.caption(t("expires_in", m=session_mins_left()))
         if st.button(t("logout_btn"), use_container_width=True, key="sb_logout"):
@@ -1013,6 +1160,26 @@ st.markdown(f"""
 # PAGE: DASHBOARD
 # ═══════════════════════════════════════════════════════════════════════════════
 if page == "dashboard":
+    lang = st.session_state.get("lang", "en")
+
+    # ── Global incident totals (across all buses) ─────────────────────────────
+    global_cnts = {k: 0 for k in STATUSES}
+    rc_state_all = st.session_state.get("rollcall_state", {})
+    for bname, members in buses.items():
+        rc = migrate_rc_state(rc_state_all.get(bname, {}))
+        for m in members:
+            s = rc.get(m["name"], "absent")
+            global_cnts[s] = global_cnts.get(s, 0) + 1
+
+    total_rc_marked = sum(global_cnts.values())
+    total_present   = global_cnts.get("present", 0)
+    total_absent    = global_cnts.get("absent",  0)
+    total_sick      = global_cnts.get("sick",    0)
+    total_arrested  = global_cnts.get("arrested",0)
+    total_missing   = global_cnts.get("missing", 0)
+
+    # ── Top stat grid ─────────────────────────────────────────────────────────
+    # Row 1: fleet basics
     stats = [
         (total_buses_n, t("total_buses"),    ""),
         (total_members, t("total_members"),  ""),
@@ -1025,6 +1192,51 @@ if page == "dashboard":
     html += '</div>'
     st.markdown(html, unsafe_allow_html=True)
 
+    # Row 2: live incident bar (superadmin sees full breakdown, others see simplified)
+    if is_superadmin() and total_members > 0:
+        pct_present  = total_present  / total_members
+        pct_absent   = total_absent   / total_members
+        pct_sick     = total_sick     / total_members
+        pct_arrested = total_arrested / total_members
+        pct_missing  = total_missing  / total_members
+
+        # Stacked bar segments
+        seg_present  = f'<div style="flex:{pct_present:.3f};background:#2e7d32;height:100%"></div>'  if total_present  else ""
+        seg_absent   = f'<div style="flex:{pct_absent:.3f};background:#d32f2f;height:100%"></div>'   if total_absent   else ""
+        seg_sick     = f'<div style="flex:{pct_sick:.3f};background:#f9a825;height:100%"></div>'     if total_sick     else ""
+        seg_arrested = f'<div style="flex:{pct_arrested:.3f};background:#e65100;height:100%"></div>' if total_arrested else ""
+        seg_missing  = f'<div style="flex:{pct_missing:.3f};background:#555;height:100%"></div>'     if total_missing  else ""
+
+        incident_pills = "".join(
+            f'<span class="badge {status_css(sk)}">{status_emoji(sk)} {global_cnts[sk]}</span>'
+            for sk in STATUSES if global_cnts[sk]
+        )
+
+        st.markdown(f"""
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;margin-bottom:12px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                <span style="font-family:'Barlow Condensed',sans-serif;font-size:.7rem;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted)">
+                    🌐 Global Incident Overview
+                </span>
+                <div style="display:flex;gap:6px">{incident_pills}</div>
+            </div>
+            <div style="display:flex;height:10px;border-radius:4px;overflow:hidden;background:var(--surface2)">
+                {seg_present}{seg_absent}{seg_sick}{seg_arrested}{seg_missing}
+            </div>
+            <div style="display:flex;justify-content:space-between;margin-top:5px;font-size:.68rem;color:var(--muted)">
+                <span>🟢 {total_present} Present &nbsp; 🔴 {total_absent} Absent &nbsp; 🟡 {total_sick} Sick</span>
+                <span>🟠 {total_arrested} Arrested &nbsp; ⚫ {total_missing} Missing</span>
+            </div>
+        </div>""", unsafe_allow_html=True)
+
+        # Alert banner for critical statuses
+        alerts = []
+        if total_missing  > 0: alerts.append(f"⚫ {total_missing} MISSING")
+        if total_arrested > 0: alerts.append(f"🟠 {total_arrested} ARRESTED")
+        if alerts:
+            st.error(f"🚨 CRITICAL: {' · '.join(alerts)} — immediate attention required")
+
+    # ── Fleet overview per bus ────────────────────────────────────────────────
     st.markdown(f"### {t('fleet_overview')}")
     if buses:
         for bname, members in buses.items():
@@ -1037,6 +1249,21 @@ if page == "dashboard":
             pct_int   = int(pct * 100)
             bar_color = "#d32f2f" if pct_int >= 90 else "#f9a825" if pct_int >= 70 else "#2e7d32"
 
+            rc   = migrate_rc_state(rc_state_all.get(bname, {}))
+            cnts = rc_bus_counts(members, rc)
+            inc_pills = ""
+            for sk, (emoji, lbl_en, lbl_ar, css) in STATUSES.items():
+                n = cnts.get(sk, 0)
+                if n:
+                    lbl = lbl_ar if is_ar() else lbl_en
+                    inc_pills += f'<span class="inc-pill badge {css}">{emoji} {n} {lbl}</span>'
+
+            # Bus quick-note (superadmin can leave a short note per bus)
+            if is_superadmin():
+                bn_key = f"bus_note_{bname}"
+                bus_notes = data.setdefault("bus_notes", {})
+                note_val  = bus_notes.get(bname, "")
+
             col_a, col_b = st.columns([4, 1])
             with col_a:
                 st.markdown(f"""
@@ -1044,14 +1271,55 @@ if page == "dashboard":
                     <span style="font-family:'Barlow Condensed',sans-serif;font-size:1rem;text-transform:uppercase;letter-spacing:.5px">{bname}</span>
                     &nbsp;<span class="badge {badge_cls}">{badge_txt}</span>
                     <span style="font-size:.78rem;color:#555;margin-left:8px">{count} / {cap}</span>
-                </div>""", unsafe_allow_html=True)
+                </div>
+                <div class="inc-strip">{inc_pills}</div>""", unsafe_allow_html=True)
                 st.progress(min(pct, 1.0))
+                # Quick note per bus (superadmin only, inline under bar)
+                if is_superadmin():
+                    new_note = st.text_input("", value=note_val, key=f"dash_note_{bname}",
+                                             placeholder=f"📝 Quick note for {bname}…",
+                                             label_visibility="collapsed")
+                    if new_note != note_val:
+                        data["bus_notes"][bname] = new_note
+                        save_data(data)
             with col_b:
                 st.markdown(f'<div style="text-align:right;font-family:Barlow Condensed,sans-serif;font-size:1.6rem;font-weight:700;color:{bar_color};padding-top:4px">{pct_int}%</div>', unsafe_allow_html=True)
     else:
         st.info(t("no_buses"))
 
-    # Duplicate names warning
+    # ── Superadmin: full incident table ───────────────────────────────────────
+    if is_superadmin() and buses and total_members > 0:
+        with st.expander("🗂️ Full Incident Table", expanded=False):
+            rows = []
+            for bname, members in buses.items():
+                rc = migrate_rc_state(rc_state_all.get(bname, {}))
+                for m in members:
+                    s = rc.get(m["name"], "absent")
+                    rows.append({
+                        "Bus":    bname,
+                        "Name":   m["name"],
+                        "Role":   m.get("role", ""),
+                        "Phone":  m.get("phone", ""),
+                        "Status": f"{status_emoji(s)} {status_label(s, lang)}",
+                    })
+            if rows:
+                df_inc = pd.DataFrame(rows)
+                # Sort: missing/arrested first
+                priority = {"missing": 0, "arrested": 1, "sick": 2, "absent": 3, "present": 4}
+                def _sort_status(label_str):
+                    for k, v in priority.items():
+                        if status_label(k, lang) in label_str:
+                            return v
+                    return 99
+                df_inc["_pri"] = df_inc["Status"].apply(_sort_status)
+                df_inc = df_inc.sort_values("_pri").drop(columns=["_pri"])
+                st.dataframe(df_inc, use_container_width=True, hide_index=True)
+                inc_csv = df_inc.to_csv(index=False, encoding="utf-8-sig").encode("utf-8-sig")
+                st.download_button("⬇ Export Incident Report", data=inc_csv,
+                                   file_name=f"incidents_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+                                   mime="text/csv")
+
+    # ── Duplicate names warning ───────────────────────────────────────────────
     all_names = [m["name"].lower() for mems in buses.values() for m in mems]
     dups = {n for n in all_names if all_names.count(n) > 1}
     if dups:
@@ -1059,6 +1327,34 @@ if page == "dashboard":
         for dup in dups:
             dup_buses = [b for b, mems in buses.items() if any(m["name"].lower() == dup for m in mems)]
             st.markdown(f'<div class="dup-warn">⚠️ <b>{dup.title()}</b> — {t("appears_in")}: {", ".join(dup_buses)}</div>', unsafe_allow_html=True)
+
+    # ── Event log (superadmin: last 10 actions at a glance) ───────────────────
+    if is_superadmin():
+        with st.expander("📡 Live Activity Log", expanded=False):
+            recent = load_audit()[:15]
+            if recent:
+                for entry in recent:
+                    action_icon = {
+                        "LOGIN": "🔑", "LOGOUT": "🚪", "ROLL_CALL": "✅",
+                        "ADD_MEMBER": "➕", "REMOVE_MEMBER": "✕",
+                        "CREATE_BUS": "🚌", "DELETE_BUS": "🗑️",
+                        "MOVE_MEMBER": "🔄", "CHANGE_PASSWORD": "🔐",
+                        "TRIP_INFO": "✈️", "TRIP_NOTES": "📝",
+                    }.get(entry.get("action",""), "•")
+                    ts   = entry.get("timestamp","")[-8:]   # HH:MM:SS
+                    user = entry.get("user","?")
+                    det  = entry.get("detail","")
+                    st.markdown(
+                        f'<div style="display:flex;gap:8px;padding:5px 0;border-bottom:1px solid #1c1c1c;font-size:.8rem">'
+                        f'<span style="color:#555;min-width:60px">{ts}</span>'
+                        f'<span>{action_icon}</span>'
+                        f'<span style="color:#9a9a9a;min-width:60px">{user}</span>'
+                        f'<span style="color:#6b6b6b">{det}</span>'
+                        f'</div>',
+                        unsafe_allow_html=True
+                    )
+            else:
+                st.caption("No activity yet.")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -1182,9 +1478,10 @@ elif page == "buses":
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# PAGE: ROLL CALL
+# PAGE: ROLL CALL  — big-tap incident status per member
 # ═══════════════════════════════════════════════════════════════════════════════
 elif page == "rollcall":
+    lang = st.session_state.get("lang", "en")
     st.markdown(f"### ✅ {t('rollcall_title')}")
     st.markdown(f"<p style='color:#6b6b6b;font-size:.85rem'>{t('rollcall_subtitle')}</p>", unsafe_allow_html=True)
 
@@ -1194,46 +1491,108 @@ elif page == "rollcall":
         rc_bus  = st.selectbox(t("select_bus_rc"), list(buses.keys()), key="rc_bus")
         members = buses.get(rc_bus, [])
 
+        # Ensure state exists and is migrated
         if rc_bus not in st.session_state.rollcall_state:
             st.session_state.rollcall_state[rc_bus] = {}
-        rc = st.session_state.rollcall_state[rc_bus]
+        rc = migrate_rc_state(st.session_state.rollcall_state[rc_bus])
+        st.session_state.rollcall_state[rc_bus] = rc
         for m in members:
-            rc.setdefault(m["name"], False)
+            rc.setdefault(m["name"], "absent")
 
-        total_rc  = len(members)
-        boarded_n = sum(1 for m in members if rc.get(m["name"]))
-        pct_rc    = boarded_n / total_rc if total_rc else 0
-        rc_color  = "#2e7d32" if pct_rc >= 1.0 else "#f9a825" if pct_rc >= 0.5 else "#d32f2f"
+        total_rc     = len(members)
+        accounted_n  = sum(1 for m in members if rc.get(m["name"], "absent") != "absent")
+        present_n    = sum(1 for m in members if rc.get(m["name"]) == "present")
+        pct_rc       = present_n / total_rc if total_rc else 0
+        pct_accounted= accounted_n / total_rc if total_rc else 0
+        rc_color     = "#2e7d32" if pct_rc >= 1.0 else "#f9a825" if pct_rc >= 0.5 else "#d32f2f"
+        cnts         = rc_bus_counts(members, rc)
 
-        complete_html = f"<div style='margin-top:10px;font-size:1.1rem;color:#66bb6a;font-weight:700'>{t('rollcall_complete')}</div>" if pct_rc >= 1.0 and total_rc > 0 else ""
+        # ── Completion notification ───────────────────────────────────────────
+        _notify_key   = f"rc_notified_{rc_bus}"
+        all_accounted = (accounted_n == total_rc and total_rc > 0)
+        all_present   = (present_n   == total_rc and total_rc > 0)
+        was_notified  = st.session_state.get(_notify_key, False)
+
+        if all_accounted and not was_notified:
+            st.session_state[_notify_key] = True
+            if all_present:
+                st.balloons()
+                st.success(f"🎉 All {total_rc} members of **{rc_bus}** confirmed PRESENT — bus ready!")
+            else:
+                non_p = total_rc - present_n
+                st.warning(f"✅ All {total_rc} members of **{rc_bus}** accounted for — {present_n} present, {non_p} with incident status.")
+        elif not all_accounted and was_notified:
+            st.session_state[_notify_key] = False
+
+        # Superadmin global fleet completion check
+        if is_superadmin() and buses:
+            _rc_all = st.session_state.rollcall_state
+            all_buses_done = all(
+                len(buses[bn]) > 0 and
+                sum(1 for mm in buses[bn] if _rc_all.get(bn, {}).get(mm["name"], "absent") != "absent") == len(buses[bn])
+                for bn in buses
+            )
+            _global_key = "rc_global_notified"
+            if all_buses_done and not st.session_state.get(_global_key):
+                st.session_state[_global_key] = True
+                st.balloons()
+                st.success(f"🚌💚 FLEET COMPLETE — All {total_members} members across all {total_buses_n} buses accounted for!")
+            elif not all_buses_done:
+                st.session_state[_global_key] = False
+
+        # ── Progress block ────────────────────────────────────────────────────
+        complete_html = (f"<div style='margin-top:10px;font-size:1.1rem;color:#66bb6a;font-weight:700'>"
+                         f"{t('rollcall_complete')}</div>") if all_present and total_rc > 0 else ""
+
+        accounted_html = ""
+        if accounted_n > 0 and not all_accounted:
+            accounted_html = f"<div style='font-size:.75rem;color:#9a9a9a;margin-top:4px'>{accounted_n}/{total_rc} accounted for (including incident statuses)</div>"
+
+        # Incident summary pills
+        inc_pills = ""
+        for sk, (emoji, lbl_en, lbl_ar, css) in STATUSES.items():
+            n = cnts.get(sk, 0)
+            lbl = lbl_ar if lang == "ar" else lbl_en
+            inc_pills += f'<span class="inc-pill badge {css}">{emoji} {n} {lbl}</span>'
+
         st.markdown(f"""
         <div class="rc-progress">
             <div style="display:flex;align-items:baseline;gap:10px">
-                <div class="rc-fraction" style="color:{rc_color}">{boarded_n}</div>
+                <div class="rc-fraction" style="color:{rc_color}">{present_n}</div>
                 <div style="font-family:'Barlow Condensed',sans-serif;font-size:1.8rem;color:#3a3a3a">/ {total_rc}</div>
                 <div style="font-size:.8rem;color:#6b6b6b;text-transform:uppercase;letter-spacing:1px;margin-left:4px">{t('boarded')}</div>
             </div>
             <div style="background:var(--surface2);border-radius:4px;height:8px;margin-top:10px;overflow:hidden">
                 <div style="height:100%;width:{int(pct_rc*100)}%;background:{rc_color};border-radius:4px;transition:width .4s"></div>
             </div>
+            <div class="inc-strip" style="margin-top:10px">{inc_pills}</div>
+            {accounted_html}
             {complete_html}
         </div>""", unsafe_allow_html=True)
 
+        # ── Action row ────────────────────────────────────────────────────────
         ca, cb, cc = st.columns([1, 1, 2])
         with ca:
             if st.button(t("mark_all_boarded"), use_container_width=True, key="rc_all"):
                 for m in members:
-                    rc[m["name"]] = True
+                    rc[m["name"]] = "present"
                 st.rerun()
         with cb:
             if st.button(t("reset_rollcall"), use_container_width=True, key="rc_reset"):
                 for m in members:
-                    rc[m["name"]] = False
+                    rc[m["name"]] = "absent"
                 st.rerun()
         with cc:
             if members:
-                rc_rows = [{"Name": m["name"], "Role": m.get("role",""), "Phone": m.get("phone",""),
-                            "Boarded": "✅" if rc.get(m["name"]) else "❌"} for m in members]
+                rc_rows = [
+                    {
+                        "Name":   m["name"],
+                        "Role":   m.get("role", ""),
+                        "Phone":  m.get("phone", ""),
+                        "Status": rc.get(m["name"], "absent"),
+                    }
+                    for m in members
+                ]
                 rc_csv = pd.DataFrame(rc_rows).to_csv(index=False, encoding="utf-8-sig").encode("utf-8-sig")
                 st.download_button(t("rc_export"), data=rc_csv,
                                    file_name=f"rollcall_{rc_bus}_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
@@ -1241,52 +1600,66 @@ elif page == "rollcall":
 
         st.markdown("<br>", unsafe_allow_html=True)
 
-        rc_search = st.text_input(t("rc_search_label"), key="rc_search_input", label_visibility="collapsed")
-        st.markdown(f'<div style="font-size:.7rem;color:#555;margin:-8px 0 10px;padding-left:2px">🔍 {t("rc_search_label")}</div>', unsafe_allow_html=True)
+        # ── Search ────────────────────────────────────────────────────────────
+        rc_search = st.text_input("", key="rc_search_input",
+                                   placeholder=f"🔍 {t('rc_search_label')}")
 
         def _rc_match(m: dict) -> bool:
             if not rc_search: return True
             q = rc_search.strip().lower()
             return q in m["name"].lower() or q in m.get("role","").lower() or q in m.get("phone","").lower()
 
-        pending  = [m for m in members if not rc.get(m["name"]) and _rc_match(m)]
-        boarded_ = [m for m in members if     rc.get(m["name"]) and _rc_match(m)]
-
+        filtered_members = [m for m in members if _rc_match(m)]
         if rc_search:
-            st.caption(f'🔎 {len(pending)+len(boarded_)} result(s) for "{rc_search.strip()}"')
+            st.caption(f'🔎 {len(filtered_members)} result(s) for "{rc_search.strip()}"')
 
-        if pending:
-            st.markdown(f"**⏳ {t('not_boarded')} ({len(pending)})**")
-            for m in pending:
-                chk_col, name_col, role_col, phone_col = st.columns([0.06, 0.50, 0.25, 0.19])
-                with chk_col:
-                    if st.checkbox(m["name"], key=f"rck_{rc_bus}_{m['name']}", value=False, label_visibility="hidden"):
-                        rc[m["name"]] = True
-                        log_audit("ROLL_CALL", f"'{m['name']}' boarded '{rc_bus}'")
-                        st.rerun()
-                with name_col:
-                    st.markdown(f'<p style="margin:6px 0;font-size:.95rem;font-weight:500">{m["name"]}</p>', unsafe_allow_html=True)
-                with role_col:
-                    if m.get("role"):
-                        st.markdown(f'<span class="{role_cls(m.get("role",""))}">{m["role"]}</span>', unsafe_allow_html=True)
-                with phone_col:
-                    if m.get("phone"):
-                        st.markdown(f'<p style="margin:6px 0;font-size:.72rem;color:#64b5f6">📞 {m["phone"]}</p>', unsafe_allow_html=True)
+        # ── Legend ────────────────────────────────────────────────────────────
+        legend_html = '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;font-size:.72rem;">'
+        for sk, (emoji, lbl_en, lbl_ar, css) in STATUSES.items():
+            lbl = lbl_ar if lang == "ar" else lbl_en
+            legend_html += f'<span class="badge {css}">{emoji} {lbl}</span>'
+        legend_html += f'<span style="color:var(--muted);font-size:.68rem;align-self:center">← {t("tap_to_cycle")}</span></div>'
+        st.markdown(legend_html, unsafe_allow_html=True)
 
-        if boarded_:
-            st.markdown(f"**✅ {t('boarded')} ({len(boarded_)})**")
-            for m in boarded_:
-                chk_col2, name_col2, role_col2, _ = st.columns([0.06, 0.50, 0.25, 0.19])
-                with chk_col2:
-                    if not st.checkbox(m["name"], key=f"rck_{rc_bus}_{m['name']}", value=True, label_visibility="hidden"):
-                        rc[m["name"]] = False; st.rerun()
-                with name_col2:
-                    st.markdown(f'<p style="margin:6px 0;font-size:.95rem;text-decoration:line-through;color:#6b6b6b">{m["name"]}</p>', unsafe_allow_html=True)
-                with role_col2:
-                    if m.get("role"):
-                        st.markdown(f'<p style="margin:6px 0;font-size:.72rem;color:#66bb6a">{m["role"]}</p>', unsafe_allow_html=True)
+        # ── Member tap buttons ────────────────────────────────────────────────
+        # Group by status for visual clarity: pending first, then others
+        STATUS_ORDER = ["absent", "missing", "arrested", "sick", "present"]
 
-        if rc_search and not pending and not boarded_:
+        def sort_key(m):
+            s = rc.get(m["name"], "absent")
+            try:
+                return STATUS_ORDER.index(s)
+            except ValueError:
+                return 99
+
+        sorted_members = sorted(filtered_members, key=sort_key)
+
+        for m in sorted_members:
+            mname  = m["name"]
+            cur_st = rc.get(mname, "absent")
+            nxt_st = next_status(cur_st)
+            emoji  = status_emoji(cur_st)
+            lbl    = status_label(cur_st, lang)
+            css    = status_css(cur_st)
+            role_h = f'<span class="rc-tap-role">{m.get("role","")}</span>' if m.get("role") else ""
+            phone_h= f'<span class="rc-tap-phone">📞 {m.get("phone","")}</span>' if m.get("phone") else ""
+
+            # We render a native Streamlit button styled to look like a tap card.
+            # The label encodes the full row so one tap = one action.
+            col_btn, col_badge = st.columns([5, 1])
+            with col_btn:
+                btn_label = f"{emoji}  {mname}"
+                if role_h or phone_h:
+                    btn_label += f"  |  {m.get('role','')}  {m.get('phone','')}"
+                if st.button(btn_label, key=f"rctap_{rc_bus}_{mname}", use_container_width=True):
+                    rc[mname] = nxt_st
+                    log_audit("ROLL_CALL", f"'{mname}' in '{rc_bus}': {cur_st} → {nxt_st}")
+                    st.rerun()
+            with col_badge:
+                st.markdown(f'<div style="padding-top:6px"><span class="badge {css}">{lbl}</span></div>',
+                            unsafe_allow_html=True)
+
+        if rc_search and not filtered_members:
             st.info(t("no_members_found"))
 
 
@@ -1294,6 +1667,7 @@ elif page == "rollcall":
 # PAGE: TRAVEL
 # ═══════════════════════════════════════════════════════════════════════════════
 elif page == "travel":
+    lang = st.session_state.get("lang", "en")
     st.markdown(f"### ✈️ {t('travel_title')}")
     st.markdown(f"<p style='color:#6b6b6b;font-size:.85rem'>{t('travel_subtitle')}</p>", unsafe_allow_html=True)
 
@@ -1331,9 +1705,18 @@ elif page == "travel":
             st.rerun()
 
     unchecked_n = sum(1 for item in checklist_items if not cl_state.get(item, False))
-    if unchecked_n == 0:
+    _cl_key = "checklist_was_complete"
+    if unchecked_n == 0 and checklist_items:
+        if not st.session_state.get(_cl_key):
+            st.session_state[_cl_key] = True
+            st.balloons()
         st.success(t("all_clear"))
     else:
+        if st.session_state.get(_cl_key):
+            st.session_state[_cl_key] = False
+        if unchecked_n < len(checklist_items):
+            done_n = len(checklist_items) - unchecked_n
+            st.info(f"✔️ {done_n} / {len(checklist_items)} checks done — {unchecked_n} remaining")
         st.warning(t("missing_checks", n=unchecked_n))
 
     reset_col, _ = st.columns([1, 3])
@@ -1344,49 +1727,65 @@ elif page == "travel":
 
     st.markdown("---")
 
-    # ── Absent Members (from Roll Call) ───────────────────────────────────────
+    # ── Incident Summary per Bus (replaces simple "Absent Members") ───────────
     st.markdown(f"#### ⚠️ {t('absent_members')}")
     rc_state = st.session_state.get("rollcall_state", {})
 
     if not buses:
         st.info(t("no_buses"))
     else:
-        any_absent = False
+        any_incident = False
         for bname, members in buses.items():
-            rc = rc_state.get(bname, {})
-            absent = [m for m in members if not rc.get(m["name"], False)]
-            if absent:
-                any_absent = True
-                st.markdown(f'<div class="travel-card"><div class="travel-card-title">🚌 {bname} — {len(absent)} absent</div>', unsafe_allow_html=True)
-                for m in absent:
-                    phone_html = f' &nbsp; 📞 <span style="color:#64b5f6">{m["phone"]}</span>' if m.get("phone") else ""
-                    st.markdown(f'<div class="absent-row">❌ <b>{m["name"]}</b> <span style="color:#555;font-size:.78rem">[{m.get("role","Member")}]</span>{phone_html}</div>', unsafe_allow_html=True)
+            rc = migrate_rc_state(rc_state.get(bname, {}))
+            non_present = [m for m in members if rc.get(m["name"], "absent") != "present"]
+            if non_present:
+                any_incident = True
+                cnts = rc_bus_counts(members, rc)
+                pills = "".join(
+                    f'<span class="badge {status_css(sk)}">{status_emoji(sk)} {cnts[sk]} {status_label(sk, lang)}</span> '
+                    for sk in STATUSES if cnts.get(sk, 0) and sk != "present"
+                )
+                st.markdown(f'<div class="travel-card"><div class="travel-card-title">🚌 {bname} &nbsp; {pills}</div>', unsafe_allow_html=True)
+                for m in non_present:
+                    mst     = rc.get(m["name"], "absent")
+                    emoji   = status_emoji(mst)
+                    css     = status_css(mst)
+                    lbl     = status_label(mst, lang)
+                    phone_h = f' &nbsp; 📞 <span style="color:#64b5f6">{m["phone"]}</span>' if m.get("phone") else ""
+                    st.markdown(
+                        f'<div class="absent-row">'
+                        f'{emoji} <b>{m["name"]}</b> '
+                        f'<span class="badge {css}" style="margin-left:6px">{lbl}</span>'
+                        f'<span style="color:#555;font-size:.78rem;margin-left:6px">[{m.get("role","Member")}]</span>'
+                        f'{phone_h}</div>',
+                        unsafe_allow_html=True
+                    )
                 st.markdown('</div>', unsafe_allow_html=True)
 
-        if not any_absent:
+        if not any_incident:
             st.success(t("rollcall_complete"))
         else:
             st.caption("Run Roll Call first if counts look wrong.")
 
     st.markdown("---")
 
-    # ── Departure Summary per Bus ─────────────────────────────────────────────
+    # ── Fleet Ready Status ────────────────────────────────────────────────────
     st.markdown(f"#### 🚌 Fleet Ready Status")
     if buses:
         for bname, members in buses.items():
-            cap   = capacity.get(bname, DEFAULT_CAPACITY)
-            count = len(members)
-            rc    = rc_state.get(bname, {})
-            bon   = sum(1 for m in members if rc.get(m["name"], False))
-            pct   = bon / count if count else 0
-            color = "#2e7d32" if pct >= 1.0 else "#f9a825" if pct >= 0.5 else "#d32f2f"
+            cap    = capacity.get(bname, DEFAULT_CAPACITY)
+            count  = len(members)
+            rc     = migrate_rc_state(rc_state.get(bname, {}))
+            present_n = sum(1 for m in members if rc.get(m["name"]) == "present")
+            pct    = present_n / count if count else 0
+            color  = "#2e7d32" if pct >= 1.0 else "#f9a825" if pct >= 0.5 else "#d32f2f"
             st.markdown(f"""
             <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #1c1c1c">
                 <span style="font-family:'Barlow Condensed',sans-serif;font-size:1rem;text-transform:uppercase;min-width:130px">{bname}</span>
                 <div style="flex:1;background:#1c1c1c;border-radius:3px;height:6px;overflow:hidden">
                     <div style="width:{int(min(pct,1)*100)}%;height:100%;background:{color};border-radius:3px"></div>
                 </div>
-                <span style="font-size:.82rem;color:#6b6b6b;min-width:80px;text-align:right">{bon}/{count} boarded</span>
+                <span style="font-size:.82rem;color:#6b6b6b;min-width:80px;text-align:right">{present_n}/{count} present</span>
             </div>""", unsafe_allow_html=True)
 
     st.markdown("---")
@@ -1440,7 +1839,6 @@ elif page == "settings":
         st.markdown("---")
         st.markdown(f"### 👥 {t('admin_mgmt')}")
 
-        # Current admins list
         st.markdown(f"**{t('admins_list')}**")
         for uname in list(admins.keys()):
             badge = f'<span class="badge badge-gold">{t("superadmin_badge")}</span>' if uname == SUPERADMIN_USERNAME else ""
@@ -1448,7 +1846,6 @@ elif page == "settings":
 
         st.markdown("<br>", unsafe_allow_html=True)
 
-        # Add admin
         with st.expander(f"➕ {t('add_admin')}", expanded=False):
             na_user = st.text_input(t("new_admin_user"), key="na_user")
             na_pass = st.text_input(t("new_admin_pass"), type="password", key="na_pass")
@@ -1467,7 +1864,6 @@ elif page == "settings":
                     st.success(t("admin_created", u=uname_clean))
                     st.rerun()
 
-        # Remove admin
         removable = [u for u in admins if u != SUPERADMIN_USERNAME]
         if removable:
             with st.expander(f"🗑️ {t('remove_admin')}", expanded=False):
