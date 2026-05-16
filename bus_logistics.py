@@ -1362,7 +1362,7 @@ elif page == "rollcall":
         # If there is an active search, show counts relative to the filter
         if rc_search:
             total_shown = len(pending) + len(boarded_)
-            st.caption(f"🔎 {total_shown} result(s) for "{rc_search.strip()}"")
+            st.caption(f'🔎 {total_shown} result(s) for "{rc_search.strip()}"')
 
         if pending:
             st.markdown(f"**⏳ {t('not_boarded')} ({len(pending)})**")
