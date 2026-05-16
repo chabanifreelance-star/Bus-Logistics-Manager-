@@ -416,6 +416,39 @@ button[kind="header"] {{ color: var(--white) !important; }}
 .stSelectbox > div > div:hover {{ border-color: var(--red) !important; }}
 label {{ color: var(--muted2) !important; font-size: .8rem !important; }}
 
+/* ── Hide the visually-hidden checkbox label Streamlit renders ── */
+[data-visibility="hidden"] {{ visibility: hidden !important; height: 0 !important; overflow: hidden !important; margin: 0 !important; padding: 0 !important; }}
+
+/* ── Make input labels clean and readable ── */
+.stTextInput label,
+.stNumberInput label,
+.stSelectbox label,
+.stTextArea label {{
+    font-size: .78rem !important;
+    font-weight: 600 !important;
+    color: var(--muted2) !important;
+    letter-spacing: .5px !important;
+    text-transform: uppercase !important;
+    margin-bottom: 3px !important;
+}}
+
+/* ── Input field text — make it clearly readable ── */
+.stTextInput input,
+.stNumberInput input {{
+    font-size: .95rem !important;
+    color: var(--white) !important;
+    background: var(--surface2) !important;
+    caret-color: var(--red) !important;
+}}
+
+/* ── Placeholder text — subtle, not competing with typed content ── */
+.stTextInput input::placeholder,
+.stNumberInput input::placeholder {{
+    color: var(--muted) !important;
+    opacity: 0.6 !important;
+    font-size: .85rem !important;
+}}
+
 /* ── Tabs ── */
 .stTabs [data-baseweb="tab-list"] {{
     background: var(--surface) !important;
@@ -889,7 +922,7 @@ if not check_session():
         if locked:
             st.error(t("locked_out", m=lock_mins))
         else:
-            username_in = st.text_input(t("username"), placeholder="admin", key="li_user")
+            username_in = st.text_input(t("username"), key="li_user")
             password_in = st.text_input(t("password"), type="password",    key="li_pass")
             if st.button(t("login_btn"), use_container_width=True, key="li_btn"):
                 if do_login(username_in, password_in):
@@ -965,7 +998,6 @@ with st.sidebar:
     st.markdown(f'<div class="sidebar-section">➕ {t("new_bus")}</div>', unsafe_allow_html=True)
     nb_name = st.text_input(
         t("bus_name"),
-        placeholder="Bus A" if not is_ar() else "حافلة أ",
         key="sb_new_bus_name",
         label_visibility="collapsed",
     )
@@ -1191,10 +1223,10 @@ elif page == "buses":
 
                 with col_add:
                     st.markdown(f"#### ✚ {t('add_member')}")
-                    new_name  = st.text_input(t("name_col"),  key=f"nm_{bname}",  placeholder=t("name_placeholder"))
+                    new_name  = st.text_input(t("name_col"),  key=f"nm_{bname}")
                     new_role  = st.selectbox(t("role"),       t("roles"),          key=f"rl_{bname}")
-                    new_phone = st.text_input(t("phone"),     key=f"ph_{bname}",  placeholder=t("add_phone"))
-                    new_note  = st.text_input(t("notes"),     key=f"nt_{bname}",  placeholder=t("add_note"))
+                    new_phone = st.text_input(t("phone"),     key=f"ph_{bname}")
+                    new_note  = st.text_input(t("notes"),     key=f"nt_{bname}")
                     if st.button(t("add_btn"), key=f"add_{bname}", use_container_width=True):
                         name_clean = new_name.strip()
                         if not name_clean:
@@ -1229,7 +1261,7 @@ elif page == "buses":
                     st.info(t("no_members_yet"))
                 else:
                     bus_filter = st.text_input(
-                        t("filter_bus"), placeholder=t("search_in_bus"),
+                        t("filter_bus"),
                         key=f"bf_{bname}", label_visibility="collapsed",
                     )
                     filtered = [m for m in members if bus_filter.lower() in m["name"].lower()] if bus_filter else members
@@ -1335,7 +1367,6 @@ elif page == "rollcall":
         # Lets the admin quickly find a specific member during boarding
         rc_search = st.text_input(
             t("rc_search_label"),
-            placeholder=t("rc_search_placeholder"),
             key="rc_search_input",
             label_visibility="collapsed",
         )
@@ -1367,33 +1398,34 @@ elif page == "rollcall":
         if pending:
             st.markdown(f"**⏳ {t('not_boarded')} ({len(pending)})**")
             for m in pending:
-                chk_col, info_col = st.columns([0.07, 0.93])
+                chk_col, name_col, role_col, phone_col = st.columns([0.06, 0.50, 0.25, 0.19])
                 with chk_col:
-                    if st.checkbox("", key=f"rck_{rc_bus}_{m['name']}", value=False, label_visibility="collapsed"):
+                    if st.checkbox(m["name"], key=f"rck_{rc_bus}_{m['name']}", value=False, label_visibility="hidden"):
                         rc[m["name"]] = True
                         log_audit("ROLL_CALL", f"'{m['name']}' boarded on '{rc_bus}'")
                         st.rerun()
-                with info_col:
-                    ph = f'<span style="font-size:.7rem;color:#64b5f6;margin-left:10px">📞 {m["phone"]}</span>' if m.get("phone") else ""
-                    st.markdown(f"""<div class="rc-row rc-pending">
-                        <span class="rc-name">{m['name']}</span>
-                        <span class="{role_cls(m.get('role',''))}" style="margin-left:8px">{m.get('role','')}</span>
-                        {ph}
-                    </div>""", unsafe_allow_html=True)
+                with name_col:
+                    st.markdown(f'<p style="margin:6px 0;font-size:.95rem;font-weight:500">{m["name"]}</p>', unsafe_allow_html=True)
+                with role_col:
+                    if m.get("role"):
+                        st.markdown(f'<span class="{role_cls(m.get("role",""))}">{m["role"]}</span>', unsafe_allow_html=True)
+                with phone_col:
+                    if m.get("phone"):
+                        st.markdown(f'<p style="margin:6px 0;font-size:.72rem;color:#64b5f6">📞 {m["phone"]}</p>', unsafe_allow_html=True)
 
         if boarded_:
             st.markdown(f"**✅ {t('boarded')} ({len(boarded_)})**")
             for m in boarded_:
-                chk2, info2 = st.columns([0.07, 0.93])
-                with chk2:
-                    if not st.checkbox("", key=f"rck_{rc_bus}_{m['name']}", value=True, label_visibility="collapsed"):
+                chk_col2, name_col2, role_col2, _blank = st.columns([0.06, 0.50, 0.25, 0.19])
+                with chk_col2:
+                    if not st.checkbox(m["name"], key=f"rck_{rc_bus}_{m['name']}", value=True, label_visibility="hidden"):
                         rc[m["name"]] = False
                         st.rerun()
-                with info2:
-                    st.markdown(f"""<div class="rc-row rc-boarded">
-                        <span class="rc-name done">{m['name']}</span>
-                        <span style="font-size:.7rem;color:#66bb6a;margin-left:8px">{m.get('role','')}</span>
-                    </div>""", unsafe_allow_html=True)
+                with name_col2:
+                    st.markdown(f'<p style="margin:6px 0;font-size:.95rem;text-decoration:line-through;color:#6b6b6b">{m["name"]}</p>', unsafe_allow_html=True)
+                with role_col2:
+                    if m.get("role"):
+                        st.markdown(f'<p style="margin:6px 0;font-size:.72rem;color:#66bb6a">{m["role"]}</p>', unsafe_allow_html=True)
 
         if rc_search and not pending and not boarded_:
             st.info(t("no_members_found"))
@@ -1405,7 +1437,7 @@ elif page == "rollcall":
 elif page == "search":
     st.markdown(f"### 🔍 {t('search_label')}")
     query = st.text_input(
-        t("search_label"), placeholder=t("search_placeholder"),
+        t("search_label"),
         key="gsearch", label_visibility="collapsed",
     )
 
