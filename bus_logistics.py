@@ -23,7 +23,7 @@ st.set_page_config(
     page_title="Bus Logistics Manager | مدير النقل",
     page_icon="🚌",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="collapsed",
 )
 
 # ─── Translations ─────────────────────────────────────────────────────────────
@@ -527,6 +527,37 @@ st.markdown("""
     /* Note / phone field */
     .member-note { font-size:.75rem; color:var(--muted); font-style:italic; margin-top:2px; }
     .member-phone { font-size:.75rem; color:#42a5f5; margin-top:2px; }
+
+    /* Mobile Top Nav Bar */
+    .mobile-nav {
+        display: flex; gap: 0;
+        background: var(--surface); border: 1px solid var(--border);
+        border-radius: 12px; overflow: hidden; margin-bottom: 16px; width: 100%;
+    }
+    .mobile-nav-item {
+        flex: 1; text-align: center; padding: 9px 2px 7px;
+        font-family: 'Oswald', sans-serif; font-size: .62rem; text-transform: uppercase;
+        letter-spacing: .2px; color: var(--muted); cursor: pointer;
+        border-right: 1px solid var(--border); transition: all .15s; line-height: 1.3;
+    }
+    .mobile-nav-item:last-child { border-right: none; }
+    .mobile-nav-item:hover { background: var(--surface2); color: var(--white); }
+    .mobile-nav-item.active {
+        background: linear-gradient(180deg, rgba(206,17,38,.18) 0%, rgba(0,122,61,.10) 100%);
+        color: var(--white); border-bottom: 2px solid var(--red);
+    }
+    .mobile-nav-icon { font-size: 1.05rem; display:block; margin-bottom:1px; }
+
+    /* 2-col stat grid */
+    .stat-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:16px; }
+
+    /* Compact header on small screens */
+    @media (max-width:768px) {
+        .header-title { font-size:1.1rem!important; letter-spacing:.5px!important; }
+        .header-subtitle { display:none; }
+        .header-icon { font-size:1.6rem!important; }
+        .app-header { padding:10px 14px 8px!important; margin-bottom:6px!important; }
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -887,25 +918,47 @@ st.markdown(f"""
     <div class="header-page-badge">{page_label_map.get(page,'')}</div>
 </div>""", unsafe_allow_html=True)
 
+# ── Mobile-first Top Navigation Bar ──────────────────────────────────────────
+# Rendered as real Streamlit columns so buttons actually work on mobile
+nav_icons   = ["📊","🚌","✅","🔍","📈","⚙️"]
+nav_ids     = ["dashboard","buses","rollcall","search","analytics","settings"]
+nav_labels_short = ["Dash","Roster","Roll Call","Search","Stats","Settings"]
+nav_cols = st.columns(len(nav_ids))
+for col_n, (nid, nicon, nlabel) in zip(nav_cols, zip(nav_ids, nav_icons, nav_labels_short)):
+    with col_n:
+        is_active_nav = page == nid
+        btn_style = "background:linear-gradient(180deg,rgba(206,17,38,.22),rgba(0,122,61,.12));border:1px solid #ce1126;color:#f0ebe0;" if is_active_nav else ""
+        # We use a tiny markdown to set active style then a button
+        if is_active_nav:
+            st.markdown(f"""<div style="text-align:center;margin-bottom:-10px">
+                <span style="font-size:.95rem">{nicon}</span><br>
+                <span style="font-size:.58rem;color:#ce1126;font-family:'Oswald',sans-serif;text-transform:uppercase;letter-spacing:.3px">{nlabel}</span>
+            </div>""", unsafe_allow_html=True)
+        else:
+            if st.button(f"{nicon}\n{nlabel}", key=f"mobnav_{nid}", use_container_width=True):
+                st.session_state.active_page = nid
+                st.rerun()
+
+# thin separator
+st.markdown('<hr style="margin:4px 0 14px;border-color:#2a2a2a">', unsafe_allow_html=True)
+
 
 # ════════════════════════════════════════════════
 # PAGE: DASHBOARD
 # ════════════════════════════════════════════════
 if page == "dashboard":
-    col1, col2, col3, col4 = st.columns(4)
+    # Stat cards — 2x2 HTML grid (mobile-friendly)
     stats_data = [
         (total_buses_val,  t("total_buses"),    ""),
         (total_members,    t("total_members"),  ""),
         (seats_avail,      t("seats_available"),"stat-green"),
         (full_buses_val,   t("full_buses"),     ""),
     ]
-    for col, (num, label, cls) in zip([col1, col2, col3, col4], stats_data):
-        with col:
-            st.markdown(f"""<div class="stat-card {cls}">
-                <div class="stat-num">{num}</div>
-                <div class="stat-label">{label}</div>
-            </div>""", unsafe_allow_html=True)
-
+    cards_html = '<div class="stat-grid">'
+    for num, label, cls in stats_data:
+        cards_html += f'<div class="stat-card {cls}"><div class="stat-num">{num}</div><div class="stat-label">{label}</div></div>'
+    cards_html += '</div>'
+    st.markdown(cards_html, unsafe_allow_html=True)
     st.markdown("<br>", unsafe_allow_html=True)
 
     # Fleet occupancy overview
