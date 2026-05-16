@@ -8,18 +8,17 @@ import secrets
 from datetime import datetime, timedelta
 
 # ─── Constants ────────────────────────────────────────────────────────────────
-DATA_FILE                 = "bus_data.json"
-AUDIT_FILE                = "audit_log.json"
-DEFAULT_CAPACITY          = 50
-ADMIN_USERNAME            = "admin"
-ADMIN_PASSWORD_HASH       = hashlib.sha256("Admin@2024!".encode()).hexdigest()
-SESSION_TIMEOUT_MINUTES   = 30
-MAX_LOGIN_ATTEMPTS        = 5
-LOCKOUT_DURATION_MINUTES  = 15
+DATA_FILE                = "bus_data.json"
+AUDIT_FILE               = "audit_log.json"
+DEFAULT_CAPACITY         = 50
+SUPERADMIN_USERNAME      = "admin"
+DEFAULT_SUPERADMIN_HASH  = hashlib.sha256("Admin@2024!".encode()).hexdigest()
+SESSION_TIMEOUT_MINUTES  = 30
+MAX_LOGIN_ATTEMPTS       = 5
+LOCKOUT_DURATION_MINUTES = 15
 
-# ─── Page config (must be first Streamlit call) ───────────────────────────────
 st.set_page_config(
-    page_title="Bus Logistics Manager | مدير النقل",
+    page_title="Bus Logistics",
     page_icon="🚌",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -28,262 +27,306 @@ st.set_page_config(
 # ─── Translations ─────────────────────────────────────────────────────────────
 T = {
     "en": {
-        "app_title":        "Bus Logistics",
-        "app_subtitle":     "Fleet management",
-        "login_title":      "Admin Login",
-        "login_subtitle":   "Secure access required",
-        "username":         "Username",
-        "password":         "Password",
-        "login_btn":        "Sign In",
-        "logout_btn":       "Sign Out",
-        "wrong_creds":      "Invalid username or password.",
-        "locked_out":       "Too many failed attempts. Try again in {m} minutes.",
-        "session_expired":  "Session expired. Please sign in again.",
-        "welcome":          "Welcome, Admin",
-        "new_bus":          "New Bus",
-        "bus_name":         "Bus name",
-        "capacity":         "Capacity",
-        "create_bus":       "Create Bus",
-        "delete_bus":       "Delete Bus",
-        "select_bus_delete":"Select bus to delete",
-        "confirm_delete":   "Delete {b} and all its members?",
-        "yes_delete":       "Yes, Delete",
-        "cancel":           "Cancel",
-        "move_member":      "Move Member",
-        "from_bus":         "From bus",
-        "to_bus":           "To bus",
-        "member":           "Member",
-        "move_btn":         "Move",
-        "export":           "Export",
-        "download_csv":     "⬇ Download CSV",
-        "download_json":    "⬇ Download JSON",
-        "total_buses":      "Buses",
-        "total_members":    "Members",
-        "seats_available":  "Seats Free",
-        "full_buses":       "Full Buses",
-        "search_placeholder":"Search by name…",
-        "search_label":     "Search Member",
-        "found_results":    "{n} result(s) found",
-        "no_members_found": "No members found.",
-        "duplicate_warning":"⚠️ Duplicate Names",
-        "no_buses":         "No buses yet — create one in the sidebar.",
-        "add_member":       "Add Member",
-        "name_placeholder": "Full name",
-        "role":             "Role",
-        "roles":            ["Member", "Leader", "Driver", "Assistant", "Other"],
-        "add_btn":          "Add ✚",
-        "bus_full":         "Bus is full ({c} seats).",
-        "enter_name":       "Enter a name.",
-        "added_success":    "✅ Added {n}!",
-        "edit_capacity":    "⚙️ Edit Capacity",
-        "max_seats":        "Max seats",
-        "update_capacity":  "Update",
-        "cap_updated":      "Capacity updated.",
-        "members_count":    "Members — {n} / {c}",
-        "filter_bus":       "Filter",
-        "search_in_bus":    "Search in this bus…",
-        "no_members_yet":   "No members yet.",
-        "all_members_title":"All Members",
-        "total_label":      "Total: {n} members across {b} buses",
-        "bus_created":      "Bus '{b}' created.",
-        "bus_exists":       "Bus already exists.",
-        "enter_bus_name":   "Enter a bus name.",
-        "bus_deleted":      "Bus deleted.",
-        "moved_success":    "Moved {m} → {b}.",
-        "no_members_bus":   "No members in this bus.",
-        "audit_log":        "Audit Log",
-        "session_info":     "Session",
-        "expires_in":       "Expires in {m} min",
-        "full_badge":       "FULL",
-        "ok_badge":         "OK",
-        "name_col":         "Name",
-        "role_col":         "Role",
-        "bus_col":          "Bus",
-        "added_col":        "Added",
-        "appears_in":       "appears in",
-        "toggle_lang":      "عربي",
-        "seats_of":         "{c} seats",
-        "page_dashboard":   "Dashboard",
-        "page_buses":       "Bus Roster",
-        "page_rollcall":    "Roll Call",
-        "page_search":      "Search",
-        "page_analytics":   "Analytics",
-        "page_settings":    "Settings",
-        "rollcall_title":   "Roll Call",
-        "rollcall_subtitle":"Mark each person as boarded",
-        "select_bus_rc":    "Select bus",
-        "boarded":          "Boarded",
-        "not_boarded":      "Not Boarded",
-        "mark_all_boarded": "✅ Mark All Boarded",
-        "reset_rollcall":   "🔄 Reset",
-        "rollcall_progress":"{b} / {t} boarded",
-        "rollcall_complete":"🎉 All aboard!",
-        "rc_export":        "⬇ Export Roll Call CSV",
-        "rc_search_label":  "Search members in this bus…",
-        "rc_search_placeholder": "Type a name to filter…",
-        "analytics_title":  "Fleet Analytics",
-        "avg_occupancy":    "Avg Occupancy",
-        "most_roles":       "Role Distribution",
-        "timeline":         "Members Added Over Time",
-        "settings_title":   "Settings",
-        "change_password":  "Change Password",
-        "current_password": "Current Password",
-        "new_password":     "New Password",
-        "confirm_password": "Confirm Password",
-        "save_password":    "Save Password",
-        "password_changed": "Password changed.",
-        "password_mismatch":"Passwords do not match.",
-        "password_wrong":   "Current password is incorrect.",
-        "session_timeout":  "Session Timeout (minutes)",
-        "data_management":  "Data Management",
-        "clear_all_data":   "⚠️ Clear All Data",
-        "confirm_clear":    "Type CONFIRM to wipe all data",
-        "data_cleared":     "All data cleared.",
-        "danger_zone":      "Danger Zone",
-        "notes":            "Notes",
-        "add_note":         "Add a note…",
-        "save_note":        "Save",
-        "note_saved":       "Note saved.",
-        "phone":            "Phone",
-        "add_phone":        "Phone number",
-        "phone_saved":      "Phone saved.",
-        "fleet_overview":   "Fleet Overview",
-        "attempts_left":    "{n} attempt(s) left before lockout.",
-        "lang_label":       "Language",
+        "app_title":         "Bus Logistics",
+        "app_subtitle":      "Fleet management",
+        "login_title":       "Admin Login",
+        "login_subtitle":    "Secure access required",
+        "username":          "Username",
+        "password":          "Password",
+        "login_btn":         "Sign In",
+        "logout_btn":        "Sign Out",
+        "wrong_creds":       "Invalid username or password.",
+        "locked_out":        "Too many failed attempts. Try again in {m} minutes.",
+        "session_expired":   "Session expired. Please sign in again.",
+        "welcome":           "Welcome, {u}",
+        "new_bus":           "New Bus",
+        "bus_name":          "Bus name",
+        "capacity":          "Capacity",
+        "create_bus":        "Create Bus",
+        "delete_bus":        "Delete Bus",
+        "select_bus_delete": "Select bus to delete",
+        "confirm_delete":    "Delete {b} and all its members?",
+        "yes_delete":        "Yes, Delete",
+        "cancel":            "Cancel",
+        "move_member":       "Move Member",
+        "from_bus":          "From bus",
+        "to_bus":            "To bus",
+        "member":            "Member",
+        "move_btn":          "Move",
+        "export":            "Export",
+        "download_csv":      "⬇ Download CSV",
+        "download_json":     "⬇ Download JSON",
+        "total_buses":       "Buses",
+        "total_members":     "Members",
+        "seats_available":   "Seats Free",
+        "full_buses":        "Full Buses",
+        "search_label":      "Search Member",
+        "found_results":     "{n} result(s) found",
+        "no_members_found":  "No members found.",
+        "duplicate_warning": "⚠️ Duplicate Names",
+        "no_buses":          "No buses yet — create one in the sidebar.",
+        "add_member":        "Add Member",
+        "name_placeholder":  "Full name",
+        "role":              "Role",
+        "roles":             ["Member", "Leader", "Driver", "Assistant", "Other"],
+        "add_btn":           "Add ✚",
+        "bus_full":          "Bus is full ({c} seats).",
+        "enter_name":        "Enter a name.",
+        "added_success":     "✅ Added {n}!",
+        "edit_capacity":     "⚙️ Edit Capacity",
+        "max_seats":         "Max seats",
+        "update_capacity":   "Update",
+        "cap_updated":       "Capacity updated.",
+        "members_count":     "Members — {n} / {c}",
+        "filter_bus":        "Filter",
+        "no_members_yet":    "No members yet.",
+        "all_members_title": "All Members",
+        "total_label":       "Total: {n} members across {b} buses",
+        "bus_created":       "Bus '{b}' created.",
+        "bus_exists":        "Bus already exists.",
+        "enter_bus_name":    "Enter a bus name.",
+        "bus_deleted":       "Bus deleted.",
+        "moved_success":     "Moved {m} → {b}.",
+        "no_members_bus":    "No members in this bus.",
+        "audit_log":         "Audit Log",
+        "session_info":      "Session",
+        "expires_in":        "Expires in {m} min",
+        "full_badge":        "FULL",
+        "ok_badge":          "OK",
+        "name_col":          "Name",
+        "role_col":          "Role",
+        "bus_col":           "Bus",
+        "added_col":         "Added",
+        "appears_in":        "appears in",
+        "toggle_lang":       "عربي",
+        "seats_of":          "{c} seats",
+        "page_dashboard":    "Dashboard",
+        "page_buses":        "Bus Roster",
+        "page_rollcall":     "Roll Call",
+        "page_travel":       "Travel",
+        "page_settings":     "Settings",
+        "rollcall_title":    "Roll Call",
+        "rollcall_subtitle": "Mark each person as boarded",
+        "select_bus_rc":     "Select bus",
+        "boarded":           "Boarded",
+        "not_boarded":       "Not Boarded",
+        "mark_all_boarded":  "✅ Mark All",
+        "reset_rollcall":    "🔄 Reset",
+        "rollcall_progress": "{b} / {t} boarded",
+        "rollcall_complete": "🎉 All aboard!",
+        "rc_export":         "⬇ Export CSV",
+        "rc_search_label":   "Search members in this bus…",
+        "settings_title":    "Settings",
+        "change_password":   "Change Password",
+        "current_password":  "Current Password",
+        "new_password":      "New Password",
+        "confirm_password":  "Confirm Password",
+        "save_password":     "Save Password",
+        "password_changed":  "Password changed.",
+        "password_mismatch": "Passwords do not match.",
+        "password_wrong":    "Current password is incorrect.",
+        "session_timeout":   "Session Timeout (minutes)",
+        "clear_all_data":    "⚠️ Clear All Data",
+        "confirm_clear":     "Type CONFIRM to wipe all data",
+        "data_cleared":      "All data cleared.",
+        "danger_zone":       "Danger Zone",
+        "notes":             "Notes",
+        "phone":             "Phone",
+        "fleet_overview":    "Fleet Overview",
+        "attempts_left":     "{n} attempt(s) left before lockout.",
+        "lang_label":        "Language",
+        # Multi-admin
+        "admin_mgmt":        "Admin Management",
+        "add_admin":         "Add Admin",
+        "new_admin_user":    "New username",
+        "new_admin_pass":    "Password",
+        "admin_created":     "Admin '{u}' created.",
+        "admin_exists":      "Username already exists.",
+        "admin_removed":     "Admin '{u}' removed.",
+        "remove_admin":      "Remove Admin",
+        "select_admin":      "Select admin to remove",
+        "cannot_remove_self":"You cannot remove yourself.",
+        "admins_list":       "Admins",
+        "superadmin_badge":  "SUPERADMIN",
+        # Travel
+        "travel_title":      "Travel Mode",
+        "travel_subtitle":   "Pre-departure checklist & overview",
+        "depart_summary":    "Departure Summary",
+        "absent_members":    "Absent Members",
+        "checklist":         "Pre-Departure Checklist",
+        "checklist_items":   [
+            "Headcount confirmed",
+            "Driver briefed",
+            "Emergency contacts checked",
+            "Bus documents ready",
+            "First aid kit on board",
+            "Departure time confirmed",
+        ],
+        "all_clear":         "✅ All checks passed — ready to depart!",
+        "missing_checks":    "⚠️ {n} item(s) not checked",
+        "trip_notes":        "Trip Notes",
+        "save_trip_notes":   "Save",
+        "trip_notes_saved":  "Notes saved.",
+        "departure_time":    "Departure Time",
+        "destination":       "Destination",
+        "save_trip_info":    "Save Trip Info",
+        "trip_info_saved":   "Trip info saved.",
+        "absent_in":         "Absent in {b}",
     },
     "ar": {
-        "app_title":        "مدير النقل",
-        "app_subtitle":     "إدارة الأسطول",
-        "login_title":      "تسجيل دخول المدير",
-        "login_subtitle":   "يُشترط الوصول الآمن",
-        "username":         "اسم المستخدم",
-        "password":         "كلمة المرور",
-        "login_btn":        "تسجيل الدخول",
-        "logout_btn":       "تسجيل الخروج",
-        "wrong_creds":      "اسم المستخدم أو كلمة المرور غير صحيحة.",
-        "locked_out":       "محاولات فاشلة كثيرة. أعد المحاولة بعد {m} دقيقة.",
-        "session_expired":  "انتهت الجلسة. يرجى تسجيل الدخول مجدداً.",
-        "welcome":          "أهلاً، المدير",
-        "new_bus":          "حافلة جديدة",
-        "bus_name":         "اسم الحافلة",
-        "capacity":         "الطاقة",
-        "create_bus":       "إنشاء",
-        "delete_bus":       "حذف حافلة",
-        "select_bus_delete":"اختر الحافلة للحذف",
-        "confirm_delete":   "حذف {b} مع جميع أعضائها؟",
-        "yes_delete":       "نعم، احذف",
-        "cancel":           "إلغاء",
-        "move_member":      "نقل عضو",
-        "from_bus":         "من الحافلة",
-        "to_bus":           "إلى الحافلة",
-        "member":           "العضو",
-        "move_btn":         "نقل",
-        "export":           "تصدير",
-        "download_csv":     "⬇ تحميل CSV",
-        "download_json":    "⬇ تحميل JSON",
-        "total_buses":      "الحافلات",
-        "total_members":    "الأعضاء",
-        "seats_available":  "مقاعد حرة",
-        "full_buses":       "حافلات ممتلئة",
-        "search_placeholder":"ابحث عن عضو…",
-        "search_label":     "البحث عن عضو",
-        "found_results":    "تم العثور على {n} نتيجة",
-        "no_members_found": "لم يُعثر على أي عضو.",
-        "duplicate_warning":"⚠️ أسماء مكررة",
-        "no_buses":         "لا توجد حافلات بعد — أنشئ واحدة من الشريط الجانبي.",
-        "add_member":       "إضافة عضو",
-        "name_placeholder": "الاسم الكامل",
-        "role":             "الدور",
-        "roles":            ["عضو", "قائد", "سائق", "مساعد", "أخرى"],
-        "add_btn":          "إضافة ✚",
-        "bus_full":         "الحافلة ممتلئة ({c} مقعداً).",
-        "enter_name":       "أدخل اسماً.",
-        "added_success":    "✅ تمت إضافة {n}!",
-        "edit_capacity":    "⚙️ تعديل الطاقة",
-        "max_seats":        "الحد الأقصى",
-        "update_capacity":  "تحديث",
-        "cap_updated":      "تم تحديث الطاقة.",
-        "members_count":    "الأعضاء — {n} / {c}",
-        "filter_bus":       "تصفية",
-        "search_in_bus":    "بحث في الحافلة…",
-        "no_members_yet":   "لا يوجد أعضاء بعد.",
-        "all_members_title":"جميع الأعضاء",
-        "total_label":      "الإجمالي: {n} عضواً في {b} حافلات",
-        "bus_created":      "تم إنشاء الحافلة '{b}'.",
-        "bus_exists":       "الحافلة موجودة بالفعل.",
-        "enter_bus_name":   "أدخل اسم الحافلة.",
-        "bus_deleted":      "تم حذف الحافلة.",
-        "moved_success":    "تم نقل {m} إلى {b}.",
-        "no_members_bus":   "لا يوجد أعضاء في هذه الحافلة.",
-        "audit_log":        "سجل المراجعة",
-        "session_info":     "الجلسة",
-        "expires_in":       "تنتهي بعد {m} دقيقة",
-        "full_badge":       "ممتلئ",
-        "ok_badge":         "متاح",
-        "name_col":         "الاسم",
-        "role_col":         "الدور",
-        "bus_col":          "الحافلة",
-        "added_col":        "تاريخ الإضافة",
-        "appears_in":       "يظهر في",
-        "toggle_lang":      "English",
-        "seats_of":         "{c} مقعداً",
-        "page_dashboard":   "لوحة التحكم",
-        "page_buses":       "قوائم الحافلات",
-        "page_rollcall":    "التحقق من الركاب",
-        "page_search":      "بحث",
-        "page_analytics":   "التحليلات",
-        "page_settings":    "الإعدادات",
-        "rollcall_title":   "التحقق من الصعود",
-        "rollcall_subtitle":"حدد كل شخص صعد الحافلة",
-        "select_bus_rc":    "اختر الحافلة",
-        "boarded":          "صعد",
-        "not_boarded":      "لم يصعد",
-        "mark_all_boarded": "✅ تحديد الجميع",
-        "reset_rollcall":   "🔄 إعادة تعيين",
-        "rollcall_progress":"{b} / {t} صعدوا",
-        "rollcall_complete":"🎉 الجميع على متن الحافلة!",
-        "rc_export":        "⬇ تصدير CSV",
-        "rc_search_label":  "ابحث عن الأعضاء في هذه الحافلة…",
-        "rc_search_placeholder": "اكتب اسماً للتصفية…",
-        "analytics_title":  "تحليلات الأسطول",
-        "avg_occupancy":    "متوسط الإشغال",
-        "most_roles":       "توزيع الأدوار",
-        "timeline":         "الأعضاء المضافون بمرور الوقت",
-        "settings_title":   "الإعدادات",
-        "change_password":  "تغيير كلمة المرور",
-        "current_password": "كلمة المرور الحالية",
-        "new_password":     "كلمة مرور جديدة",
-        "confirm_password": "تأكيد كلمة المرور",
-        "save_password":    "حفظ",
-        "password_changed": "تم تغيير كلمة المرور.",
-        "password_mismatch":"كلمتا المرور غير متطابقتين.",
-        "password_wrong":   "كلمة المرور الحالية غير صحيحة.",
-        "session_timeout":  "مهلة الجلسة (دقائق)",
-        "data_management":  "إدارة البيانات",
-        "clear_all_data":   "⚠️ مسح جميع البيانات",
-        "confirm_clear":    "اكتب CONFIRM لمسح البيانات",
-        "data_cleared":     "تم مسح جميع البيانات.",
-        "danger_zone":      "منطقة الخطر",
-        "notes":            "ملاحظات",
-        "add_note":         "أضف ملاحظة…",
-        "save_note":        "حفظ",
-        "note_saved":       "تم حفظ الملاحظة.",
-        "phone":            "الهاتف",
-        "add_phone":        "رقم الهاتف",
-        "phone_saved":      "تم حفظ الهاتف.",
-        "fleet_overview":   "نظرة عامة على الأسطول",
-        "attempts_left":    "{n} محاولة متبقية قبل القفل.",
-        "lang_label":       "اللغة",
+        "app_title":         "مدير النقل",
+        "app_subtitle":      "إدارة الأسطول",
+        "login_title":       "تسجيل دخول المدير",
+        "login_subtitle":    "يُشترط الوصول الآمن",
+        "username":          "اسم المستخدم",
+        "password":          "كلمة المرور",
+        "login_btn":         "تسجيل الدخول",
+        "logout_btn":        "تسجيل الخروج",
+        "wrong_creds":       "اسم المستخدم أو كلمة المرور غير صحيحة.",
+        "locked_out":        "محاولات فاشلة كثيرة. أعد المحاولة بعد {m} دقيقة.",
+        "session_expired":   "انتهت الجلسة. يرجى تسجيل الدخول مجدداً.",
+        "welcome":           "أهلاً، {u}",
+        "new_bus":           "حافلة جديدة",
+        "bus_name":          "اسم الحافلة",
+        "capacity":          "الطاقة",
+        "create_bus":        "إنشاء",
+        "delete_bus":        "حذف حافلة",
+        "select_bus_delete": "اختر الحافلة للحذف",
+        "confirm_delete":    "حذف {b} مع جميع أعضائها؟",
+        "yes_delete":        "نعم، احذف",
+        "cancel":            "إلغاء",
+        "move_member":       "نقل عضو",
+        "from_bus":          "من الحافلة",
+        "to_bus":            "إلى الحافلة",
+        "member":            "العضو",
+        "move_btn":          "نقل",
+        "export":            "تصدير",
+        "download_csv":      "⬇ تحميل CSV",
+        "download_json":     "⬇ تحميل JSON",
+        "total_buses":       "الحافلات",
+        "total_members":     "الأعضاء",
+        "seats_available":   "مقاعد حرة",
+        "full_buses":        "حافلات ممتلئة",
+        "search_label":      "البحث عن عضو",
+        "found_results":     "تم العثور على {n} نتيجة",
+        "no_members_found":  "لم يُعثر على أي عضو.",
+        "duplicate_warning": "⚠️ أسماء مكررة",
+        "no_buses":          "لا توجد حافلات بعد — أنشئ واحدة من الشريط الجانبي.",
+        "add_member":        "إضافة عضو",
+        "name_placeholder":  "الاسم الكامل",
+        "role":              "الدور",
+        "roles":             ["عضو", "قائد", "سائق", "مساعد", "أخرى"],
+        "add_btn":           "إضافة ✚",
+        "bus_full":          "الحافلة ممتلئة ({c} مقعداً).",
+        "enter_name":        "أدخل اسماً.",
+        "added_success":     "✅ تمت إضافة {n}!",
+        "edit_capacity":     "⚙️ تعديل الطاقة",
+        "max_seats":         "الحد الأقصى",
+        "update_capacity":   "تحديث",
+        "cap_updated":       "تم تحديث الطاقة.",
+        "members_count":     "الأعضاء — {n} / {c}",
+        "filter_bus":        "تصفية",
+        "no_members_yet":    "لا يوجد أعضاء بعد.",
+        "all_members_title": "جميع الأعضاء",
+        "total_label":       "الإجمالي: {n} عضواً في {b} حافلات",
+        "bus_created":       "تم إنشاء الحافلة '{b}'.",
+        "bus_exists":        "الحافلة موجودة بالفعل.",
+        "enter_bus_name":    "أدخل اسم الحافلة.",
+        "bus_deleted":       "تم حذف الحافلة.",
+        "moved_success":     "تم نقل {m} إلى {b}.",
+        "no_members_bus":    "لا يوجد أعضاء في هذه الحافلة.",
+        "audit_log":         "سجل المراجعة",
+        "session_info":      "الجلسة",
+        "expires_in":        "تنتهي بعد {m} دقيقة",
+        "full_badge":        "ممتلئ",
+        "ok_badge":          "متاح",
+        "name_col":          "الاسم",
+        "role_col":          "الدور",
+        "bus_col":           "الحافلة",
+        "added_col":         "تاريخ الإضافة",
+        "appears_in":        "يظهر في",
+        "toggle_lang":       "English",
+        "seats_of":          "{c} مقعداً",
+        "page_dashboard":    "لوحة التحكم",
+        "page_buses":        "قوائم الحافلات",
+        "page_rollcall":     "التحقق من الركاب",
+        "page_travel":       "السفر",
+        "page_settings":     "الإعدادات",
+        "rollcall_title":    "التحقق من الصعود",
+        "rollcall_subtitle": "حدد كل شخص صعد الحافلة",
+        "select_bus_rc":     "اختر الحافلة",
+        "boarded":           "صعد",
+        "not_boarded":       "لم يصعد",
+        "mark_all_boarded":  "✅ تحديد الجميع",
+        "reset_rollcall":    "🔄 إعادة تعيين",
+        "rollcall_progress": "{b} / {t} صعدوا",
+        "rollcall_complete": "🎉 الجميع على متن الحافلة!",
+        "rc_export":         "⬇ تصدير CSV",
+        "rc_search_label":   "ابحث عن الأعضاء في هذه الحافلة…",
+        "settings_title":    "الإعدادات",
+        "change_password":   "تغيير كلمة المرور",
+        "current_password":  "كلمة المرور الحالية",
+        "new_password":      "كلمة مرور جديدة",
+        "confirm_password":  "تأكيد كلمة المرور",
+        "save_password":     "حفظ",
+        "password_changed":  "تم تغيير كلمة المرور.",
+        "password_mismatch": "كلمتا المرور غير متطابقتين.",
+        "password_wrong":    "كلمة المرور الحالية غير صحيحة.",
+        "session_timeout":   "مهلة الجلسة (دقائق)",
+        "clear_all_data":    "⚠️ مسح جميع البيانات",
+        "confirm_clear":     "اكتب CONFIRM لمسح البيانات",
+        "data_cleared":      "تم مسح جميع البيانات.",
+        "danger_zone":       "منطقة الخطر",
+        "notes":             "ملاحظات",
+        "phone":             "الهاتف",
+        "fleet_overview":    "نظرة عامة على الأسطول",
+        "attempts_left":     "{n} محاولة متبقية قبل القفل.",
+        "lang_label":        "اللغة",
+        # Multi-admin
+        "admin_mgmt":        "إدارة المديرين",
+        "add_admin":         "إضافة مدير",
+        "new_admin_user":    "اسم المستخدم الجديد",
+        "new_admin_pass":    "كلمة المرور",
+        "admin_created":     "تم إنشاء المدير '{u}'.",
+        "admin_exists":      "اسم المستخدم موجود بالفعل.",
+        "admin_removed":     "تم حذف المدير '{u}'.",
+        "remove_admin":      "حذف مدير",
+        "select_admin":      "اختر مديراً للحذف",
+        "cannot_remove_self":"لا يمكنك حذف نفسك.",
+        "admins_list":       "المديرون",
+        "superadmin_badge":  "المدير الرئيسي",
+        # Travel
+        "travel_title":      "وضع السفر",
+        "travel_subtitle":   "قائمة التحقق قبل المغادرة",
+        "depart_summary":    "ملخص المغادرة",
+        "absent_members":    "الأعضاء الغائبون",
+        "checklist":         "قائمة التحقق قبل المغادرة",
+        "checklist_items":   [
+            "تم تأكيد العدد",
+            "السائق جاهز",
+            "جهات الاتصال الطارئة مراجعة",
+            "وثائق الحافلة جاهزة",
+            "حقيبة الإسعافات الأولية موجودة",
+            "وقت المغادرة مؤكد",
+        ],
+        "all_clear":         "✅ جميع التحققات اجتازت — جاهز للمغادرة!",
+        "missing_checks":    "⚠️ {n} عنصر لم يُؤكد",
+        "trip_notes":        "ملاحظات الرحلة",
+        "save_trip_notes":   "حفظ",
+        "trip_notes_saved":  "تم حفظ الملاحظات.",
+        "departure_time":    "وقت المغادرة",
+        "destination":       "الوجهة",
+        "save_trip_info":    "حفظ معلومات الرحلة",
+        "trip_info_saved":   "تم حفظ معلومات الرحلة.",
+        "absent_in":         "غائب في {b}",
     },
 }
 
+
 # ─── Global CSS ───────────────────────────────────────────────────────────────
-# FIX: The sidebar ALWAYS stays LTR in layout/positioning (Streamlit hardcodes
-# it to slide from the left). RTL direction is applied only to the main content
-# area via the [data-testid="stMain"] selector and the .rtl-content wrapper.
 def inject_css(is_rtl: bool):
-    text_side = "right" if is_rtl else "left"
-    content_dir = "rtl" if is_rtl else "ltr"
+    text_side   = "right" if is_rtl else "left"
+    content_dir = "rtl"   if is_rtl else "ltr"
     st.markdown(f"""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800&family=Barlow+Condensed:wght@400;500;600;700&display=swap');
@@ -311,7 +354,6 @@ def inject_css(is_rtl: bool):
     --radius-sm:  6px;
 }}
 
-/* ── Base: font + background only (NO direction here — avoids flipping sidebar) */
 html, body, [class*="css"] {{
     font-family: 'Tajawal', 'Barlow Condensed', sans-serif;
     background: var(--bg) !important;
@@ -319,50 +361,41 @@ html, body, [class*="css"] {{
 }}
 h1,h2,h3,h4,h5 {{
     font-family: 'Barlow Condensed', 'Tajawal', sans-serif;
-    font-weight: 600;
-    letter-spacing: .4px;
+    font-weight: 600; letter-spacing: .4px;
 }}
 .stApp {{ background: var(--bg) !important; }}
 
-/* ── SIDEBAR: always LTR, always slides from left ── */
 [data-testid="stSidebar"] {{
     direction: ltr !important;
     background: var(--surface) !important;
     border-right: 1px solid var(--border) !important;
 }}
 [data-testid="stSidebar"] > div:first-child {{
-    padding-top: 1rem;
-    direction: ltr !important;
+    padding-top: 1rem; direction: ltr !important;
 }}
 
-/* ── MAIN CONTENT: RTL only here when Arabic is active ── */
 [data-testid="stMain"],
 [data-testid="stMainBlockContainer"] {{
     direction: {content_dir} !important;
 }}
 
-/* ── Hide default Streamlit chrome ── */
 #MainMenu, footer {{ visibility: hidden; }}
 header[data-testid="stHeader"] {{ background: transparent !important; }}
 [data-testid="stSidebarNav"] {{ display: none; }}
 button[kind="header"] {{ color: var(--white) !important; }}
 
-/* ── Custom scrollbar ── */
 ::-webkit-scrollbar {{ width: 4px; height: 4px; }}
 ::-webkit-scrollbar-track {{ background: var(--bg); }}
 ::-webkit-scrollbar-thumb {{ background: var(--red); border-radius: 2px; }}
 
-/* ── Buttons ── */
 .stButton > button {{
     background: var(--surface2) !important;
     color: var(--white) !important;
     border: 1px solid var(--border2) !important;
     border-radius: var(--radius-sm) !important;
     font-family: 'Barlow Condensed', 'Tajawal', sans-serif !important;
-    font-size: .88rem !important;
-    font-weight: 500 !important;
-    letter-spacing: .3px !important;
-    transition: all .15s !important;
+    font-size: .88rem !important; font-weight: 500 !important;
+    letter-spacing: .3px !important; transition: all .15s !important;
     padding: .38rem .9rem !important;
 }}
 .stButton > button:hover {{
@@ -371,148 +404,75 @@ button[kind="header"] {{ color: var(--white) !important; }}
     color: var(--white) !important;
 }}
 .stButton > button:active {{
-    background: var(--red) !important;
-    border-color: var(--red) !important;
+    background: var(--red) !important; border-color: var(--red) !important;
 }}
 
-/* ── Nav buttons inside sidebar (always LTR layout) ── */
 .nav-btn > button {{
-    background: transparent !important;
-    border: none !important;
+    background: transparent !important; border: none !important;
     border-radius: var(--radius-sm) !important;
     color: var(--muted2) !important;
-    text-align: left !important;
-    padding: .55rem 1rem !important;
-    font-size: .95rem !important;
-    transition: all .15s !important;
+    text-align: left !important; font-size: .88rem !important;
+    padding: .45rem .75rem !important;
 }}
 .nav-btn > button:hover {{
-    background: var(--surface2) !important;
-    color: var(--white) !important;
-    border-color: transparent !important;
+    background: var(--surface2) !important; color: var(--white) !important;
+    border: none !important;
 }}
 .nav-btn-active > button {{
-    background: linear-gradient(90deg, rgba(211,47,47,.2), transparent) !important;
+    background: rgba(211,47,47,.12) !important;
+    color: var(--red-soft) !important;
     border-left: 3px solid var(--red) !important;
-    border-radius: 0 var(--radius-sm) var(--radius-sm) 0 !important;
-    color: var(--white) !important;
     font-weight: 600 !important;
 }}
 
-/* ── Inputs ── */
 .stTextInput > div > div > input,
-.stNumberInput > div > div > input,
-.stSelectbox > div > div {{
-    background: var(--surface2) !important;
-    color: var(--white) !important;
+.stNumberInput > div > div > input {{
+    background: var(--surface2) !important; color: var(--white) !important;
     border: 1px solid var(--border2) !important;
     border-radius: var(--radius-sm) !important;
 }}
-.stTextInput > div > div > input:focus,
-.stNumberInput > div > div > input:focus {{
-    border-color: var(--red) !important;
-    box-shadow: 0 0 0 2px var(--red-glow) !important;
+.stSelectbox > div > div {{
+    background: var(--surface2) !important; color: var(--white) !important;
+    border: 1px solid var(--border2) !important;
+    border-radius: var(--radius-sm) !important;
 }}
-.stSelectbox > div > div:hover {{ border-color: var(--red) !important; }}
-label {{ color: var(--muted2) !important; font-size: .8rem !important; }}
-
-/* ── Hide the visually-hidden checkbox label Streamlit renders ── */
-[data-visibility="hidden"] {{ visibility: hidden !important; height: 0 !important; overflow: hidden !important; margin: 0 !important; padding: 0 !important; }}
-
-/* ── Make input labels clean and readable ── */
-.stTextInput label,
-.stNumberInput label,
-.stSelectbox label,
-.stTextArea label {{
-    font-size: .78rem !important;
-    font-weight: 600 !important;
-    color: var(--muted2) !important;
-    letter-spacing: .5px !important;
-    text-transform: uppercase !important;
-    margin-bottom: 3px !important;
+.stTextArea textarea {{
+    background: var(--surface2) !important; color: var(--white) !important;
+    border: 1px solid var(--border2) !important;
+    border-radius: var(--radius-sm) !important;
 }}
-
-/* ── Input field text — make it clearly readable ── */
-.stTextInput input,
-.stNumberInput input {{
-    font-size: .95rem !important;
-    color: var(--white) !important;
-    background: var(--surface2) !important;
-    caret-color: var(--red) !important;
-}}
-
-/* ── Placeholder text — subtle, not competing with typed content ── */
-.stTextInput input::placeholder,
-.stNumberInput input::placeholder {{
-    color: var(--muted) !important;
-    opacity: 0.6 !important;
-    font-size: .85rem !important;
-}}
-
-/* ── Tabs ── */
 .stTabs [data-baseweb="tab-list"] {{
     background: var(--surface) !important;
+    border-bottom: 1px solid var(--border) !important;
     border-radius: var(--radius) var(--radius) 0 0 !important;
-    gap: 2px;
+    gap: 2px !important;
 }}
 .stTabs [data-baseweb="tab"] {{
-    background: transparent !important;
-    color: var(--muted) !important;
+    background: transparent !important; color: var(--muted2) !important;
+    border-radius: var(--radius-sm) !important;
     font-family: 'Barlow Condensed', 'Tajawal', sans-serif !important;
-    font-size: .9rem !important;
-    border-radius: var(--radius-sm) var(--radius-sm) 0 0 !important;
+    font-size: .85rem !important; font-weight: 500 !important;
     padding: .5rem 1rem !important;
 }}
 .stTabs [aria-selected="true"] {{
-    color: var(--white) !important;
-    border-bottom: 2px solid var(--red) !important;
     background: var(--surface2) !important;
+    color: var(--white) !important; border-bottom: 2px solid var(--red) !important;
 }}
-
-/* ── Expander ── */
-.streamlit-expanderHeader {{
-    background: var(--surface2) !important;
-    border-radius: var(--radius-sm) !important;
-    color: var(--muted2) !important;
-    font-size: .9rem !important;
-}}
-.streamlit-expanderContent {{
-    background: var(--surface) !important;
-    border: 1px solid var(--border) !important;
-    border-top: none !important;
-    border-radius: 0 0 var(--radius-sm) var(--radius-sm) !important;
-}}
-
-/* ── Progress ── */
-.stProgress > div > div > div {{
-    background: var(--surface2) !important;
-    border-radius: 4px !important;
-    height: 6px !important;
+.stExpander {{
+    background: var(--surface) !important; border: 1px solid var(--border) !important;
+    border-radius: var(--radius) !important;
 }}
 .stProgress > div > div > div > div {{
     background: linear-gradient(90deg, var(--red), var(--green)) !important;
-    border-radius: 4px !important;
 }}
-
-/* ── Dataframe ── */
 .stDataFrame {{ border-radius: var(--radius) !important; overflow: hidden !important; }}
-.stDataFrame iframe {{ border-radius: var(--radius) !important; }}
-
-/* ── Alerts ── */
 .stAlert {{ border-radius: var(--radius-sm) !important; }}
-
-/* ── Divider ── */
 hr {{ border-color: var(--border) !important; margin: 10px 0 !important; }}
 
-/* ── Component: Stat card ── */
 .stat-card {{
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 18px 14px;
-    text-align: center;
-    position: relative;
-    overflow: hidden;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 18px 14px;
+    text-align: center; position: relative; overflow: hidden;
     transition: transform .15s, border-color .15s;
 }}
 .stat-card:hover {{ transform: translateY(-2px); border-color: var(--red); }}
@@ -522,8 +482,7 @@ hr {{ border-color: var(--border) !important; margin: 10px 0 !important; }}
 }}
 .stat-num {{
     font-family: 'Barlow Condensed', sans-serif;
-    font-size: 2.4rem; font-weight: 700;
-    color: var(--red); line-height: 1;
+    font-size: 2.4rem; font-weight: 700; color: var(--red); line-height: 1;
 }}
 .stat-label {{ font-size: .68rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1.5px; margin-top: 4px; }}
 .stat-green .stat-num {{ color: var(--green-soft) !important; }}
@@ -531,14 +490,11 @@ hr {{ border-color: var(--border) !important; margin: 10px 0 !important; }}
 .stat-gold  .stat-num {{ color: var(--gold)        !important; }}
 .stat-grid {{ display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 1rem; }}
 
-/* ── Component: Bus card ── */
 .bus-card {{
     background: linear-gradient(135deg, var(--surface), var(--surface2));
     border: 1px solid var(--border);
     border-{text_side}: 4px solid var(--red);
-    border-radius: var(--radius);
-    padding: 16px;
-    margin-bottom: 8px;
+    border-radius: var(--radius); padding: 16px; margin-bottom: 8px;
     transition: border-color .2s, box-shadow .2s;
 }}
 .bus-card:hover {{ box-shadow: 0 4px 20px var(--red-glow); }}
@@ -550,90 +506,50 @@ hr {{ border-color: var(--border) !important; margin: 10px 0 !important; }}
 .bus-count {{ font-family: 'Barlow Condensed', sans-serif; font-size: 2.4rem; font-weight: 700; color: var(--red); line-height: 1; }}
 .bus-sub   {{ font-size: .72rem; color: var(--muted); letter-spacing: 1px; }}
 
-/* ── Component: Badges ── */
 .badge {{
     display: inline-block; padding: 2px 8px;
     border-radius: 4px; font-size: .68rem;
     font-family: 'Barlow Condensed', sans-serif;
     font-weight: 600; letter-spacing: .8px; text-transform: uppercase;
 }}
-.badge-full  {{ background: rgba(211,47,47,.18); color: var(--red-soft); border: 1px solid var(--red); }}
-.badge-ok    {{ background: rgba(46,125,50,.18); color: var(--green-soft); border: 1px solid var(--green); }}
-.badge-warn  {{ background: rgba(249,168,37,.18); color: var(--gold); border: 1px solid var(--gold); }}
+.badge-full {{ background: rgba(211,47,47,.18); color: var(--red-soft); border: 1px solid var(--red); }}
+.badge-ok   {{ background: rgba(46,125,50,.18);  color: var(--green-soft); border: 1px solid var(--green); }}
+.badge-warn {{ background: rgba(249,168,37,.18); color: var(--gold); border: 1px solid var(--gold); }}
+.badge-gold {{ background: rgba(249,168,37,.18); color: var(--gold); border: 1px solid var(--gold); }}
 
-/* ── Component: Role tags ── */
 .role-tag {{
-    display: inline-block; padding: 1px 7px;
-    border-radius: 3px; font-size: .7rem; font-weight: 600;
-    background: var(--surface3); color: var(--muted2);
-    border: 1px solid var(--border);
+    display: inline-block; padding: 1px 7px; border-radius: 3px;
+    font-size: .7rem; font-weight: 600;
+    background: var(--surface3); color: var(--muted2); border: 1px solid var(--border);
 }}
-.role-leader {{ background: rgba(249,168,37,.15); color: var(--gold);       border-color: var(--gold); }}
+.role-leader {{ background: rgba(249,168,37,.15); color: var(--gold);      border-color: var(--gold); }}
 .role-driver {{ background: rgba(21,101,192,.15); color: var(--blue-soft); border-color: var(--blue); }}
 
-/* ── Component: Member row ── */
 .member-row {{
     display: flex; align-items: center; gap: 8px;
     padding: 8px 10px; border-radius: var(--radius-sm);
-    border-bottom: 1px solid var(--border);
-    transition: background .1s;
+    border-bottom: 1px solid var(--border); transition: background .1s;
 }}
 .member-row:hover {{ background: var(--surface2); }}
-.member-name {{ font-size: .92rem; font-weight: 500; }}
+.member-name  {{ font-size: .92rem; font-weight: 500; }}
 .member-phone {{ font-size: .72rem; color: var(--blue-soft); }}
 .member-note  {{ font-size: .72rem; color: var(--muted); font-style: italic; }}
 
-/* ── Component: Roll-call rows ── */
-.rc-row {{
-    display: flex; align-items: center; gap: 10px;
-    padding: 9px 12px; border-radius: var(--radius-sm);
-    border-bottom: 1px solid var(--border);
-    transition: background .1s;
+.rc-progress {{
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 16px 18px; margin-bottom: 14px;
 }}
-.rc-boarded   {{ background: rgba(46,125,50,.08); }}
-.rc-pending   {{ background: transparent; }}
-.rc-name      {{ font-size: .95rem; font-weight: 500; flex: 1; }}
-.rc-name.done {{ text-decoration: line-through; color: var(--muted); }}
+.rc-fraction {{ font-family: 'Barlow Condensed', sans-serif; font-size: 3rem; font-weight: 700; line-height: 1; }}
 
-/* ── Component: Roll Call search box ── */
-.rc-search-wrap {{
-    background: var(--surface);
-    border: 1px solid var(--border2);
-    border-radius: var(--radius);
-    padding: 10px 14px;
-    margin-bottom: 14px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}}
-.rc-search-icon {{
-    font-size: 1rem;
-    color: var(--muted);
-    flex-shrink: 0;
-}}
-
-/* ── Component: Analytics bar ── */
-.a-bar-wrap {{ margin-bottom: 10px; }}
+.a-bar-wrap  {{ margin-bottom: 10px; }}
 .a-bar-label {{ font-size: .82rem; color: var(--muted2); margin-bottom: 3px; }}
 .a-bar-bg    {{ background: var(--surface2); border-radius: 4px; height: 8px; overflow: hidden; }}
 .a-bar-fill  {{ height: 100%; border-radius: 4px; transition: width .4s; }}
 
-/* ── Component: Progress section (roll call) ── */
-.rc-progress {{
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 16px 18px;
-    margin-bottom: 14px;
-}}
-.rc-fraction {{ font-family: 'Barlow Condensed', sans-serif; font-size: 3rem; font-weight: 700; line-height: 1; }}
-
-/* ── Component: Page header ── */
 .page-header {{
     background: linear-gradient(135deg, var(--surface) 0%, #150103 60%, #001507 100%);
     border-bottom: 2px solid var(--red);
-    padding: 16px 20px 12px;
-    margin: -1rem -1rem 1.2rem -1rem;
+    padding: 16px 20px 12px; margin: -1rem -1rem 1.2rem -1rem;
     position: relative; overflow: hidden;
 }}
 .page-header::before {{
@@ -643,10 +559,9 @@ hr {{ border-color: var(--border) !important; margin: 10px 0 !important; }}
 .page-title {{
     font-family: 'Barlow Condensed', sans-serif;
     font-size: 1.5rem; font-weight: 700;
-    color: var(--white); text-transform: uppercase; letter-spacing: 2px;
-    line-height: 1.1;
+    color: var(--white); text-transform: uppercase; letter-spacing: 2px; line-height: 1.1;
 }}
-.page-sub {{ font-size: .72rem; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; margin-top: 1px; }}
+.page-sub   {{ font-size: .72rem; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; margin-top: 1px; }}
 .page-badge {{
     position: absolute; top: 50%; right: 20px; transform: translateY(-50%);
     background: var(--surface2); border: 1px solid var(--border);
@@ -654,62 +569,27 @@ hr {{ border-color: var(--border) !important; margin: 10px 0 !important; }}
     font-size: .68rem; color: var(--muted); letter-spacing: 1px; text-transform: uppercase;
 }}
 
-/* ── Component: Sidebar branding ── */
 .sidebar-brand {{
-    text-align: center;
-    padding: 6px 0 16px;
-    border-bottom: 1px solid var(--border);
-    margin-bottom: 12px;
+    text-align: center; padding: 6px 0 16px;
+    border-bottom: 1px solid var(--border); margin-bottom: 12px;
 }}
 .sidebar-brand-icon {{ font-size: 2rem; }}
 .sidebar-brand-name {{
     font-family: 'Barlow Condensed', 'Tajawal', sans-serif;
     font-size: 1.05rem; font-weight: 700;
-    color: var(--white); text-transform: uppercase; letter-spacing: 2px;
-    margin-top: 2px;
+    color: var(--white); text-transform: uppercase; letter-spacing: 2px; margin-top: 2px;
 }}
 .sidebar-brand-sub {{ font-size: .65rem; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; }}
 
-/* ── Component: Sidebar section label ── */
 .sidebar-section {{
     font-size: .65rem; color: var(--muted); text-transform: uppercase;
     letter-spacing: 1.5px; padding: 10px 0 4px; font-weight: 600;
 }}
 
-/* ── Component: Security notice ── */
-.security-notice {{
-    background: rgba(211,47,47,.07);
-    border: 1px solid rgba(211,47,47,.2);
-    border-radius: var(--radius-sm);
-    padding: 6px 10px;
-    font-size: .7rem; color: var(--muted2);
-    text-align: center; margin-bottom: 12px;
-}}
-
-/* ── Component: Duplicate warning ── */
-.dup-warn {{
-    background: rgba(249,168,37,.08);
-    border: 1px solid rgba(249,168,37,.3);
-    border-radius: var(--radius-sm);
-    padding: 8px 12px; margin: 4px 0;
-    font-size: .82rem; color: var(--gold);
-}}
-
-/* ── Component: Audit row ── */
-.audit-row {{
-    padding: 6px 0;
-    border-bottom: 1px solid var(--border);
-    font-size: .78rem; line-height: 1.4;
-}}
-
-/* ── Component: Login card ── */
 .login-card {{
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-top: 3px solid var(--red);
-    border-radius: var(--radius);
-    padding: 32px 28px 28px;
-    box-shadow: 0 8px 32px rgba(0,0,0,.5);
+    background: var(--surface); border: 1px solid var(--border);
+    border-top: 3px solid var(--red); border-radius: var(--radius);
+    padding: 32px 28px 28px; box-shadow: 0 8px 32px rgba(0,0,0,.5);
 }}
 .login-title {{
     font-family: 'Barlow Condensed', 'Tajawal', sans-serif;
@@ -719,18 +599,51 @@ hr {{ border-color: var(--border) !important; margin: 10px 0 !important; }}
 }}
 .login-sub {{ font-size: .72rem; color: var(--muted); text-align: center; letter-spacing: 1px; margin-bottom: 20px; }}
 
-/* ── Mobile tweaks ── */
+.dup-warn {{
+    background: rgba(249,168,37,.08); border: 1px solid rgba(249,168,37,.3);
+    border-radius: var(--radius-sm); padding: 8px 12px; margin: 4px 0;
+    font-size: .82rem; color: var(--gold);
+}}
+
+.checklist-item {{
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px; border-radius: var(--radius-sm);
+    border-bottom: 1px solid var(--border); transition: background .1s;
+}}
+.checklist-item:hover {{ background: var(--surface2); }}
+
+.travel-card {{
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 16px; margin-bottom: 10px;
+}}
+.travel-card-title {{
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 1rem; font-weight: 600; text-transform: uppercase;
+    color: var(--muted2); letter-spacing: 1px; margin-bottom: 10px;
+}}
+.absent-row {{
+    padding: 6px 10px; border-radius: var(--radius-sm);
+    border-bottom: 1px solid var(--border);
+    font-size: .88rem; color: var(--red-soft);
+}}
+
+.admin-row {{
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 12px; border-radius: var(--radius-sm);
+    border-bottom: 1px solid var(--border);
+    font-size: .88rem;
+}}
+
 @media (max-width: 768px) {{
-    .page-title    {{ font-size: 1.15rem !important; letter-spacing: .5px !important; }}
-    .page-sub      {{ display: none; }}
-    .page-badge    {{ display: none; }}
-    .page-header   {{ padding: 10px 14px 8px !important; margin-bottom: 8px !important; }}
-    .stat-num      {{ font-size: 1.9rem !important; }}
-    .bus-count     {{ font-size: 1.9rem !important; }}
-    .rc-fraction   {{ font-size: 2.2rem !important; }}
+    .page-title {{ font-size: 1.15rem !important; letter-spacing: .5px !important; }}
+    .page-sub, .page-badge {{ display: none; }}
+    .page-header {{ padding: 10px 14px 8px !important; margin-bottom: 8px !important; }}
+    .stat-num {{ font-size: 1.9rem !important; }}
+    .rc-fraction {{ font-size: 2.2rem !important; }}
 }}
 </style>
 """, unsafe_allow_html=True)
+
 
 # ─── Language helpers ─────────────────────────────────────────────────────────
 def t(key: str, **kwargs) -> str:
@@ -743,6 +656,7 @@ def t(key: str, **kwargs) -> str:
 def is_ar() -> bool:
     return st.session_state.get("lang", "en") == "ar"
 
+
 # ─── Security helpers ─────────────────────────────────────────────────────────
 def hash_password(pw: str) -> str:
     return hashlib.sha256(pw.encode()).hexdigest()
@@ -750,18 +664,39 @@ def hash_password(pw: str) -> str:
 def verify_password(pw: str, hashed: str) -> bool:
     return hmac.compare_digest(hash_password(pw), hashed)
 
+
+# ─── Admin helpers ────────────────────────────────────────────────────────────
+def get_admins(data: dict) -> dict:
+    """Returns {username: pw_hash}. Always includes superadmin."""
+    admins = data.setdefault("admins", {})
+    if SUPERADMIN_USERNAME not in admins:
+        # Migrate: pull existing custom hash or default
+        stored = st.session_state.get("admin_pw_hash", DEFAULT_SUPERADMIN_HASH)
+        admins[SUPERADMIN_USERNAME] = stored
+    return admins
+
+def is_superadmin() -> bool:
+    return st.session_state.get("current_user") == SUPERADMIN_USERNAME
+
+def current_user() -> str:
+    return st.session_state.get("current_user", SUPERADMIN_USERNAME)
+
+
+# ─── Session ──────────────────────────────────────────────────────────────────
 def init_session():
     defaults = {
-        "lang":               "en",
-        "authenticated":      False,
-        "login_attempts":     0,
-        "lockout_until":      None,
-        "session_start":      None,
-        "session_token":      None,
-        "admin_pw_hash":      ADMIN_PASSWORD_HASH,
-        "active_page":        "dashboard",
-        "rollcall_state":     {},
+        "lang":                    "en",
+        "authenticated":           False,
+        "current_user":            None,
+        "login_attempts":          0,
+        "lockout_until":           None,
+        "session_start":           None,
+        "session_token":           None,
+        "active_page":             "dashboard",
+        "rollcall_state":          {},
         "session_timeout_minutes": SESSION_TIMEOUT_MINUTES,
+        "checklist_state":         {},
+        "trip_info":               {},
     }
     for k, v in defaults.items():
         if k not in st.session_state:
@@ -787,26 +722,28 @@ def session_mins_left() -> int:
     return max(0, int(timeout - (datetime.now() - start).total_seconds() / 60))
 
 def _do_logout():
-    log_audit("LOGOUT", "Admin logged out")
-    st.session_state.authenticated = False
-    st.session_state.session_start = None
-    st.session_state.session_token = None
+    log_audit("LOGOUT", f"{current_user()} logged out")
+    st.session_state.authenticated  = False
+    st.session_state.current_user   = None
+    st.session_state.session_start  = None
+    st.session_state.session_token  = None
 
-def do_login(username: str, password: str) -> bool:
+def do_login(username: str, password: str, data: dict) -> bool:
     lockout = st.session_state.get("lockout_until")
     if lockout and datetime.now() < lockout:
         return False
-    pw_hash = st.session_state.get("admin_pw_hash", ADMIN_PASSWORD_HASH)
-    if username == ADMIN_USERNAME and verify_password(password, pw_hash):
-        st.session_state.authenticated   = True
-        st.session_state.login_attempts  = 0
-        st.session_state.lockout_until   = None
-        st.session_state.session_start   = datetime.now()
-        st.session_state.session_token   = secrets.token_hex(32)
-        log_audit("LOGIN", f"Successful login from '{username}'")
+    admins = get_admins(data)
+    if username in admins and verify_password(password, admins[username]):
+        st.session_state.authenticated  = True
+        st.session_state.current_user   = username
+        st.session_state.login_attempts = 0
+        st.session_state.lockout_until  = None
+        st.session_state.session_start  = datetime.now()
+        st.session_state.session_token  = secrets.token_hex(32)
+        log_audit("LOGIN", f"Successful login: '{username}'")
         return True
     st.session_state.login_attempts = st.session_state.get("login_attempts", 0) + 1
-    log_audit("LOGIN_FAIL", f"Failed attempt #{st.session_state.login_attempts}")
+    log_audit("LOGIN_FAIL", f"Failed attempt #{st.session_state.login_attempts} for '{username}'")
     if st.session_state.login_attempts >= MAX_LOGIN_ATTEMPTS:
         st.session_state.lockout_until = datetime.now() + timedelta(minutes=LOCKOUT_DURATION_MINUTES)
         log_audit("LOCKOUT", "Account locked — too many failed attempts")
@@ -819,10 +756,12 @@ def is_locked_out():
         return True, remaining
     return False, 0
 
+
 # ─── Audit log ────────────────────────────────────────────────────────────────
 def log_audit(action: str, detail: str):
     entry = {
         "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "user":   st.session_state.get("current_user", "—"),
         "action": action,
         "detail": detail,
     }
@@ -835,7 +774,7 @@ def log_audit(action: str, detail: str):
             logs = []
     logs.insert(0, entry)
     with open(AUDIT_FILE, "w") as f:
-        json.dump(logs[:200], f, indent=2)
+        json.dump(logs[:300], f, indent=2)
 
 def load_audit() -> list:
     if os.path.exists(AUDIT_FILE):
@@ -846,6 +785,7 @@ def load_audit() -> list:
             pass
     return []
 
+
 # ─── Data persistence ─────────────────────────────────────────────────────────
 def load_data() -> dict:
     if os.path.exists(DATA_FILE):
@@ -854,7 +794,7 @@ def load_data() -> dict:
                 return json.load(f)
         except Exception:
             pass
-    return {"buses": {}, "capacity": {}}
+    return {"buses": {}, "capacity": {}, "admins": {}}
 
 def save_data(d: dict):
     with open(DATA_FILE, "w", encoding="utf-8") as f:
@@ -874,7 +814,6 @@ def all_members_flat(buses: dict) -> list:
             })
     return rows
 
-# ─── Role badge helper ────────────────────────────────────────────────────────
 def role_cls(role: str) -> str:
     r = (role or "").lower()
     if "leader" in r or "قائد" in r:
@@ -883,11 +822,11 @@ def role_cls(role: str) -> str:
         return "role-tag role-driver"
     return "role-tag"
 
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # INITIALISE
 # ═══════════════════════════════════════════════════════════════════════════════
 init_session()
-inject_css(is_ar())
 
 if "data" not in st.session_state:
     st.session_state.data = load_data()
@@ -895,12 +834,14 @@ if "data" not in st.session_state:
 data     = st.session_state.data
 buses    = data.setdefault("buses", {})
 capacity = data.setdefault("capacity", {})
+admins   = get_admins(data)  # ensures admins dict is initialised
+
+inject_css(is_ar())
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# LOGIN PAGE
+# LOGIN SCREEN
 # ═══════════════════════════════════════════════════════════════════════════════
 if not check_session():
-    # Language toggle at top-right of login screen
     top_cols = st.columns([6, 1])
     with top_cols[1]:
         if st.button(t("toggle_lang"), key="lang_login"):
@@ -911,21 +852,20 @@ if not check_session():
     _, col, _ = st.columns([1, 1.3, 1])
     with col:
         st.markdown(f"""
-        <div class="login-card {'rtl' if is_ar() else ''}">
+        <div class="login-card">
             <div style="text-align:center;font-size:2.6rem;margin-bottom:8px">🚌</div>
             <div class="login-title">{t('login_title')}</div>
             <div class="login-sub">{t('login_subtitle')}</div>
-        </div>
-        """, unsafe_allow_html=True)
+        </div>""", unsafe_allow_html=True)
 
         locked, lock_mins = is_locked_out()
         if locked:
             st.error(t("locked_out", m=lock_mins))
         else:
             username_in = st.text_input(t("username"), key="li_user")
-            password_in = st.text_input(t("password"), type="password",    key="li_pass")
+            password_in = st.text_input(t("password"), type="password", key="li_pass")
             if st.button(t("login_btn"), use_container_width=True, key="li_btn"):
-                if do_login(username_in, password_in):
+                if do_login(username_in, password_in, data):
                     st.rerun()
                 else:
                     locked2, lm2 = is_locked_out()
@@ -937,18 +877,15 @@ if not check_session():
                         if remaining <= 2:
                             st.warning(t("attempts_left", n=remaining))
 
-        st.markdown('<div style="text-align:center;margin-top:18px;font-size:.68rem;color:#3a3a3a">🔒 Bus Logistics Manager — Secured</div>', unsafe_allow_html=True)
+        st.markdown('<div style="text-align:center;margin-top:18px;font-size:.68rem;color:#3a3a3a">🔒 Bus Logistics — Secured</div>', unsafe_allow_html=True)
     st.stop()
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # AUTHENTICATED — SIDEBAR
-# Note: sidebar content is always rendered LTR (Streamlit slides from left).
-# We do not apply `direction:rtl` inside the sidebar — only in the main area.
 # ═══════════════════════════════════════════════════════════════════════════════
 with st.sidebar:
-
-    # ── Branding ──────────────────────────────────────────────────────────────
+    # Branding
     st.markdown(f"""
     <div class="sidebar-brand">
         <div class="sidebar-brand-icon">🚌</div>
@@ -956,57 +893,40 @@ with st.sidebar:
         <div class="sidebar-brand-sub">{t('app_subtitle')}</div>
     </div>""", unsafe_allow_html=True)
 
-    # ── Language toggle ───────────────────────────────────────────────────────
+    # Language toggle
     st.markdown(f'<div class="sidebar-section">{t("lang_label")}</div>', unsafe_allow_html=True)
     lc1, lc2 = st.columns(2)
     with lc1:
-        if st.button("🇬🇧  EN", use_container_width=True, key="sb_lang_en"):
-            st.session_state.lang = "en"
-            st.rerun()
+        if st.button("🇬🇧 EN", use_container_width=True, key="sb_en"):
+            st.session_state.lang = "en"; st.rerun()
     with lc2:
-        if st.button("🇩🇿  AR", use_container_width=True, key="sb_lang_ar"):
-            st.session_state.lang = "ar"
-            st.rerun()
+        if st.button("🇩🇿 AR", use_container_width=True, key="sb_ar"):
+            st.session_state.lang = "ar"; st.rerun()
 
-    st.markdown('<div class="security-notice">🔐 Secured — All actions logged</div>', unsafe_allow_html=True)
-
-    # ── Navigation ────────────────────────────────────────────────────────────
+    # Navigation
     st.markdown('<div class="sidebar-section">Navigation</div>', unsafe_allow_html=True)
-
     nav_pages = [
         ("dashboard", "📊", t("page_dashboard")),
         ("buses",     "🚌", t("page_buses")),
         ("rollcall",  "✅", t("page_rollcall")),
-        ("search",    "🔍", t("page_search")),
-        ("analytics", "📈", t("page_analytics")),
+        ("travel",    "✈️", t("page_travel")),
         ("settings",  "⚙️", t("page_settings")),
     ]
     current_page = st.session_state.get("active_page", "dashboard")
-
     for pid, picon, plabel in nav_pages:
-        is_active = current_page == pid
-        cls = "nav-btn nav-btn-active" if is_active else "nav-btn"
+        cls = "nav-btn nav-btn-active" if current_page == pid else "nav-btn"
         st.markdown(f'<div class="{cls}">', unsafe_allow_html=True)
         if st.button(f"{picon}  {plabel}", key=f"nav_{pid}", use_container_width=True):
-            st.session_state.active_page = pid
-            st.rerun()
+            st.session_state.active_page = pid; st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
 
     st.markdown("---")
 
-    # ── Create New Bus ────────────────────────────────────────────────────────
+    # Create New Bus
     st.markdown(f'<div class="sidebar-section">➕ {t("new_bus")}</div>', unsafe_allow_html=True)
-    nb_name = st.text_input(
-        t("bus_name"),
-        key="sb_new_bus_name",
-        label_visibility="collapsed",
-    )
-    nb_cap = st.number_input(
-        t("capacity"),
-        min_value=1, max_value=200, value=DEFAULT_CAPACITY,
-        key="sb_new_bus_cap",
-        label_visibility="collapsed",
-    )
+    nb_name = st.text_input(t("bus_name"), key="sb_new_bus_name", label_visibility="collapsed")
+    nb_cap  = st.number_input(t("capacity"), min_value=1, max_value=200, value=DEFAULT_CAPACITY,
+                               key="sb_new_bus_cap", label_visibility="collapsed")
     if st.button(t("create_bus"), use_container_width=True, key="sb_create_bus"):
         name = nb_name.strip()
         if not name:
@@ -1023,19 +943,15 @@ with st.sidebar:
 
     st.markdown("---")
 
-    # ── Move Member ───────────────────────────────────────────────────────────
+    # Move Member (only if 2+ buses)
     if len(buses) >= 2:
         st.markdown(f'<div class="sidebar-section">🔄 {t("move_member")}</div>', unsafe_allow_html=True)
-        from_b = st.selectbox(t("from_bus"), list(buses.keys()), key="sb_move_from", label_visibility="collapsed")
+        from_b   = st.selectbox(t("from_bus"), list(buses.keys()), key="sb_move_from", label_visibility="collapsed")
         if buses.get(from_b):
-            move_sel = st.selectbox(
-                t("member"), [m["name"] for m in buses[from_b]],
-                key="sb_move_member", label_visibility="collapsed",
-            )
-            to_b = st.selectbox(
-                t("to_bus"), [b for b in buses if b != from_b],
-                key="sb_move_to", label_visibility="collapsed",
-            )
+            move_sel = st.selectbox(t("member"), [m["name"] for m in buses[from_b]],
+                                     key="sb_move_member", label_visibility="collapsed")
+            to_b = st.selectbox(t("to_bus"), [b for b in buses if b != from_b],
+                                 key="sb_move_to", label_visibility="collapsed")
             if st.button(t("move_btn"), use_container_width=True, key="sb_move_btn"):
                 obj = next((m for m in buses[from_b] if m["name"] == move_sel), None)
                 if obj:
@@ -1049,85 +965,59 @@ with st.sidebar:
             st.caption(t("no_members_bus"))
         st.markdown("---")
 
-    # ── Export ────────────────────────────────────────────────────────────────
+    # Export
     if buses:
         flat = all_members_flat(buses)
         if flat:
             st.markdown(f'<div class="sidebar-section">📤 {t("export")}</div>', unsafe_allow_html=True)
-            df_exp   = pd.DataFrame(flat)
-            csv_out  = df_exp.to_csv(index=False, encoding="utf-8-sig").encode("utf-8-sig")
-            json_out = json.dumps(data, indent=2, ensure_ascii=False).encode("utf-8")
-            st.download_button(
-                t("download_csv"), data=csv_out,
-                file_name=f"roster_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
-                mime="text/csv", use_container_width=True, key="sb_dl_csv",
-            )
-            st.download_button(
-                t("download_json"), data=json_out,
-                file_name=f"data_{datetime.now().strftime('%Y%m%d_%H%M')}.json",
-                mime="application/json", use_container_width=True, key="sb_dl_json",
-            )
+            df_exp  = pd.DataFrame(flat)
+            csv_out = df_exp.to_csv(index=False, encoding="utf-8-sig").encode("utf-8-sig")
+            json_out = json.dumps({"buses": buses, "capacity": capacity}, indent=2, ensure_ascii=False).encode("utf-8")
+            st.download_button(t("download_csv"),  data=csv_out,
+                               file_name=f"roster_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+                               mime="text/csv", use_container_width=True, key="sb_dl_csv")
+            st.download_button(t("download_json"), data=json_out,
+                               file_name=f"data_{datetime.now().strftime('%Y%m%d_%H%M')}.json",
+                               mime="application/json", use_container_width=True, key="sb_dl_json")
             st.markdown("---")
 
-    # ── Session & Logout ──────────────────────────────────────────────────────
-    with st.expander(f"👤 {t('session_info')}", expanded=False):
-        st.caption(t("welcome"))
+    # Session / Logout
+    user_badge = f'<span class="badge badge-gold">{t("superadmin_badge")}</span>' if is_superadmin() else ""
+    with st.expander(f"👤 {current_user()} {user_badge}", expanded=False):
+        st.caption(t("welcome", u=current_user()))
         st.caption(t("expires_in", m=session_mins_left()))
         if st.button(t("logout_btn"), use_container_width=True, key="sb_logout"):
-            _do_logout()
-            st.rerun()
-
-    # ── Audit log (last 20) ───────────────────────────────────────────────────
-    with st.expander(f"📋 {t('audit_log')}", expanded=False):
-        entries = load_audit()
-        if entries:
-            action_colors = {
-                "LOGIN": "#4caf7a", "LOGOUT": "#9a9a9a",
-                "LOGIN_FAIL": "#ef9a9a", "LOCKOUT": "#ef5350",
-            }
-            for e in entries[:20]:
-                col = action_colors.get(e["action"], "#f9a825")
-                st.markdown(f"""<div class="audit-row">
-                    <span style="color:{col};font-weight:700">{e['action']}</span>
-                    &nbsp;·&nbsp; <span style="color:#555">{e['timestamp']}</span><br>
-                    <span style="color:#777">{e['detail']}</span>
-                </div>""", unsafe_allow_html=True)
-        else:
-            st.caption("No entries yet.")
+            _do_logout(); st.rerun()
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # SHARED COMPUTED VALUES
 # ═══════════════════════════════════════════════════════════════════════════════
-page           = st.session_state.get("active_page", "dashboard")
-total_members  = sum(len(m) for m in buses.values())
-total_buses_n  = len(buses)
-total_cap      = sum(capacity.get(b, DEFAULT_CAPACITY) for b in buses)
-full_buses_n   = sum(1 for b in buses if len(buses[b]) >= capacity.get(b, DEFAULT_CAPACITY))
-seats_free     = max(0, total_cap - total_members)
+page          = st.session_state.get("active_page", "dashboard")
+total_members = sum(len(m) for m in buses.values())
+total_buses_n = len(buses)
+total_cap     = sum(capacity.get(b, DEFAULT_CAPACITY) for b in buses)
+full_buses_n  = sum(1 for b in buses if len(buses[b]) >= capacity.get(b, DEFAULT_CAPACITY))
+seats_free    = max(0, total_cap - total_members)
 
-# ── Page header ───────────────────────────────────────────────────────────────
 _page_labels = {pid: lbl for pid, _, lbl in nav_pages}
-
 st.markdown(f"""
-<div class="page-header {'rtl' if is_ar() else ''}">
+<div class="page-header">
     <div class="page-title">🚌 {t('app_title')}</div>
     <div class="page-sub">{t('app_subtitle')}</div>
     <div class="page-badge">{_page_labels.get(page, '')}</div>
-</div>
-""", unsafe_allow_html=True)
+</div>""", unsafe_allow_html=True)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # PAGE: DASHBOARD
 # ═══════════════════════════════════════════════════════════════════════════════
 if page == "dashboard":
-
     stats = [
-        (total_buses_n, t("total_buses"),   ""),
-        (total_members, t("total_members"), ""),
-        (seats_free,    t("seats_available"),"stat-green"),
-        (full_buses_n,  t("full_buses"),    ""),
+        (total_buses_n, t("total_buses"),    ""),
+        (total_members, t("total_members"),  ""),
+        (seats_free,    t("seats_available"), "stat-green"),
+        (full_buses_n,  t("full_buses"),     ""),
     ]
     html = '<div class="stat-grid">'
     for num, label, cls in stats:
@@ -1141,7 +1031,7 @@ if page == "dashboard":
             cap   = capacity.get(bname, DEFAULT_CAPACITY)
             count = len(members)
             pct   = count / cap if cap > 0 else 0
-            is_full = count >= cap
+            is_full   = count >= cap
             badge_cls = "badge-full" if is_full else ("badge-warn" if pct >= 0.75 else "badge-ok")
             badge_txt = t("full_badge") if is_full else t("ok_badge")
             pct_int   = int(pct * 100)
@@ -1161,7 +1051,7 @@ if page == "dashboard":
     else:
         st.info(t("no_buses"))
 
-    # Duplicate names check
+    # Duplicate names warning
     all_names = [m["name"].lower() for mems in buses.values() for m in mems]
     dups = {n for n in all_names if all_names.count(n) > 1}
     if dups:
@@ -1224,7 +1114,7 @@ elif page == "buses":
                 with col_add:
                     st.markdown(f"#### ✚ {t('add_member')}")
                     new_name  = st.text_input(t("name_col"),  key=f"nm_{bname}")
-                    new_role  = st.selectbox(t("role"),       t("roles"),          key=f"rl_{bname}")
+                    new_role  = st.selectbox(t("role"),       t("roles"), key=f"rl_{bname}")
                     new_phone = st.text_input(t("phone"),     key=f"ph_{bname}")
                     new_note  = st.text_input(t("notes"),     key=f"nt_{bname}")
                     if st.button(t("add_btn"), key=f"add_{bname}", use_container_width=True):
@@ -1242,17 +1132,16 @@ elif page == "buses":
                                 "added": datetime.now().strftime("%Y-%m-%d %H:%M"),
                             })
                             save_data(data)
-                            log_audit("ADD_MEMBER", f"Added '{name_clean}' role={new_role} to '{bname}'")
+                            log_audit("ADD_MEMBER", f"Added '{name_clean}' to '{bname}'")
                             st.success(t("added_success", n=name_clean))
                             st.rerun()
 
                 with st.expander(t("edit_capacity")):
                     new_cap_v = st.number_input(t("max_seats"), min_value=1, max_value=500, value=cap, key=f"cap_{bname}")
                     if st.button(t("update_capacity"), key=f"savecap_{bname}"):
-                        old = capacity.get(bname, DEFAULT_CAPACITY)
                         capacity[bname] = int(new_cap_v)
                         save_data(data)
-                        log_audit("EDIT_CAPACITY", f"'{bname}' cap {old} → {new_cap_v}")
+                        log_audit("EDIT_CAPACITY", f"'{bname}' cap → {new_cap_v}")
                         st.success(t("cap_updated"))
                         st.rerun()
 
@@ -1260,11 +1149,8 @@ elif page == "buses":
                 if not members:
                     st.info(t("no_members_yet"))
                 else:
-                    bus_filter = st.text_input(
-                        t("filter_bus"),
-                        key=f"bf_{bname}", label_visibility="collapsed",
-                    )
-                    filtered = [m for m in members if bus_filter.lower() in m["name"].lower()] if bus_filter else members
+                    bus_filter = st.text_input(t("filter_bus"), key=f"bf_{bname}", label_visibility="collapsed")
+                    filtered   = [m for m in members if bus_filter.lower() in m["name"].lower()] if bus_filter else members
 
                     for j, m in enumerate(filtered):
                         mc1, mc2, mc3, mc4 = st.columns([3, 1.5, 1, 0.4])
@@ -1305,7 +1191,7 @@ elif page == "rollcall":
     if not buses:
         st.info(t("no_buses"))
     else:
-        rc_bus = st.selectbox(t("select_bus_rc"), list(buses.keys()), key="rc_bus")
+        rc_bus  = st.selectbox(t("select_bus_rc"), list(buses.keys()), key="rc_bus")
         members = buses.get(rc_bus, [])
 
         if rc_bus not in st.session_state.rollcall_state:
@@ -1314,12 +1200,11 @@ elif page == "rollcall":
         for m in members:
             rc.setdefault(m["name"], False)
 
-        total_rc   = len(members)
-        boarded_n  = sum(1 for m in members if rc.get(m["name"]))
-        pct_rc     = boarded_n / total_rc if total_rc else 0
-        rc_color   = "#2e7d32" if pct_rc >= 1.0 else "#f9a825" if pct_rc >= 0.5 else "#d32f2f"
+        total_rc  = len(members)
+        boarded_n = sum(1 for m in members if rc.get(m["name"]))
+        pct_rc    = boarded_n / total_rc if total_rc else 0
+        rc_color  = "#2e7d32" if pct_rc >= 1.0 else "#f9a825" if pct_rc >= 0.5 else "#d32f2f"
 
-        # Progress block
         complete_html = f"<div style='margin-top:10px;font-size:1.1rem;color:#66bb6a;font-weight:700'>{t('rollcall_complete')}</div>" if pct_rc >= 1.0 and total_rc > 0 else ""
         st.markdown(f"""
         <div class="rc-progress">
@@ -1334,7 +1219,6 @@ elif page == "rollcall":
             {complete_html}
         </div>""", unsafe_allow_html=True)
 
-        # Controls row
         ca, cb, cc = st.columns([1, 1, 2])
         with ca:
             if st.button(t("mark_all_boarded"), use_container_width=True, key="rc_all"):
@@ -1348,52 +1232,28 @@ elif page == "rollcall":
                 st.rerun()
         with cc:
             if members:
-                rc_rows = [{
-                    "Name": m["name"],
-                    "Role": m.get("role", ""),
-                    "Phone": m.get("phone", ""),
-                    "Boarded": "✅" if rc.get(m["name"]) else "❌",
-                } for m in members]
+                rc_rows = [{"Name": m["name"], "Role": m.get("role",""), "Phone": m.get("phone",""),
+                            "Boarded": "✅" if rc.get(m["name"]) else "❌"} for m in members]
                 rc_csv = pd.DataFrame(rc_rows).to_csv(index=False, encoding="utf-8-sig").encode("utf-8-sig")
-                st.download_button(
-                    t("rc_export"), data=rc_csv,
-                    file_name=f"rollcall_{rc_bus}_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
-                    mime="text/csv", use_container_width=True, key="rc_dl",
-                )
+                st.download_button(t("rc_export"), data=rc_csv,
+                                   file_name=f"rollcall_{rc_bus}_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+                                   mime="text/csv", use_container_width=True, key="rc_dl")
 
         st.markdown("<br>", unsafe_allow_html=True)
 
-        # ── Search / filter bar ────────────────────────────────────────────────
-        # Lets the admin quickly find a specific member during boarding
-        rc_search = st.text_input(
-            t("rc_search_label"),
-            key="rc_search_input",
-            label_visibility="collapsed",
-        )
-        st.markdown(
-            f'<div style="font-size:.7rem;color:#555;margin:-8px 0 10px;padding-left:2px">🔍 {t("rc_search_label")}</div>',
-            unsafe_allow_html=True,
-        )
+        rc_search = st.text_input(t("rc_search_label"), key="rc_search_input", label_visibility="collapsed")
+        st.markdown(f'<div style="font-size:.7rem;color:#555;margin:-8px 0 10px;padding-left:2px">🔍 {t("rc_search_label")}</div>', unsafe_allow_html=True)
 
         def _rc_match(m: dict) -> bool:
-            """Return True if this member matches the current search query."""
-            if not rc_search:
-                return True
+            if not rc_search: return True
             q = rc_search.strip().lower()
-            return (
-                q in m["name"].lower()
-                or q in m.get("role", "").lower()
-                or q in m.get("phone", "").lower()
-            )
+            return q in m["name"].lower() or q in m.get("role","").lower() or q in m.get("phone","").lower()
 
-        # Split into pending / boarded, applying the search filter
         pending  = [m for m in members if not rc.get(m["name"]) and _rc_match(m)]
         boarded_ = [m for m in members if     rc.get(m["name"]) and _rc_match(m)]
 
-        # If there is an active search, show counts relative to the filter
         if rc_search:
-            total_shown = len(pending) + len(boarded_)
-            st.caption(f'🔎 {total_shown} result(s) for "{rc_search.strip()}"')
+            st.caption(f'🔎 {len(pending)+len(boarded_)} result(s) for "{rc_search.strip()}"')
 
         if pending:
             st.markdown(f"**⏳ {t('not_boarded')} ({len(pending)})**")
@@ -1402,7 +1262,7 @@ elif page == "rollcall":
                 with chk_col:
                     if st.checkbox(m["name"], key=f"rck_{rc_bus}_{m['name']}", value=False, label_visibility="hidden"):
                         rc[m["name"]] = True
-                        log_audit("ROLL_CALL", f"'{m['name']}' boarded on '{rc_bus}'")
+                        log_audit("ROLL_CALL", f"'{m['name']}' boarded '{rc_bus}'")
                         st.rerun()
                 with name_col:
                     st.markdown(f'<p style="margin:6px 0;font-size:.95rem;font-weight:500">{m["name"]}</p>', unsafe_allow_html=True)
@@ -1416,11 +1276,10 @@ elif page == "rollcall":
         if boarded_:
             st.markdown(f"**✅ {t('boarded')} ({len(boarded_)})**")
             for m in boarded_:
-                chk_col2, name_col2, role_col2, _blank = st.columns([0.06, 0.50, 0.25, 0.19])
+                chk_col2, name_col2, role_col2, _ = st.columns([0.06, 0.50, 0.25, 0.19])
                 with chk_col2:
                     if not st.checkbox(m["name"], key=f"rck_{rc_bus}_{m['name']}", value=True, label_visibility="hidden"):
-                        rc[m["name"]] = False
-                        st.rerun()
+                        rc[m["name"]] = False; st.rerun()
                 with name_col2:
                     st.markdown(f'<p style="margin:6px 0;font-size:.95rem;text-decoration:line-through;color:#6b6b6b">{m["name"]}</p>', unsafe_allow_html=True)
                 with role_col2:
@@ -1432,126 +1291,115 @@ elif page == "rollcall":
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# PAGE: SEARCH
+# PAGE: TRAVEL
 # ═══════════════════════════════════════════════════════════════════════════════
-elif page == "search":
-    st.markdown(f"### 🔍 {t('search_label')}")
-    query = st.text_input(
-        t("search_label"),
-        key="gsearch", label_visibility="collapsed",
-    )
+elif page == "travel":
+    st.markdown(f"### ✈️ {t('travel_title')}")
+    st.markdown(f"<p style='color:#6b6b6b;font-size:.85rem'>{t('travel_subtitle')}</p>", unsafe_allow_html=True)
 
-    if query:
-        results = []
-        for bname, members in buses.items():
-            for m in members:
-                if query.lower() in m["name"].lower():
-                    score = 2 if m["name"].lower().startswith(query.lower()) else 1
-                    results.append({
-                        "_s":            score,
-                        t("bus_col"):    bname,
-                        t("name_col"):   m["name"],
-                        t("role_col"):   m.get("role", "—"),
-                        t("phone"):      m.get("phone", ""),
-                        t("notes"):      m.get("note", ""),
-                        t("added_col"):  m.get("added", "—"),
-                    })
-        results.sort(key=lambda x: -x["_s"])
-        results = [{k: v for k, v in r.items() if k != "_s"} for r in results]
-        if results:
-            st.success(t("found_results", n=len(results)))
-            st.dataframe(pd.DataFrame(results), use_container_width=True, hide_index=True)
-        else:
-            st.warning(t("no_members_found"))
+    trip_info = st.session_state.get("trip_info", {})
+
+    # ── Trip Info ─────────────────────────────────────────────────────────────
+    st.markdown(f"#### 🗺️ {t('depart_summary')}")
+    ti_col1, ti_col2 = st.columns(2)
+    with ti_col1:
+        dest = st.text_input(t("destination"), value=trip_info.get("destination",""), key="ti_dest")
+    with ti_col2:
+        dep_time = st.text_input(t("departure_time"), value=trip_info.get("departure_time",""),
+                                  placeholder="e.g. 08:00", key="ti_dep")
+    if st.button(t("save_trip_info"), key="ti_save"):
+        st.session_state.trip_info = {"destination": dest.strip(), "departure_time": dep_time.strip()}
+        log_audit("TRIP_INFO", f"Destination='{dest}' Departure='{dep_time}'")
+        st.success(t("trip_info_saved"))
+
+    st.markdown("---")
+
+    # ── Pre-Departure Checklist ───────────────────────────────────────────────
+    st.markdown(f"#### 📋 {t('checklist')}")
+    checklist_items = t("checklist_items")
+    cl_state = st.session_state.get("checklist_state", {})
+
+    all_checked = True
+    for item in checklist_items:
+        checked = cl_state.get(item, False)
+        if not checked:
+            all_checked = False
+        new_val = st.checkbox(item, value=checked, key=f"cl_{item}")
+        if new_val != checked:
+            cl_state[item] = new_val
+            st.session_state.checklist_state = cl_state
+            st.rerun()
+
+    unchecked_n = sum(1 for item in checklist_items if not cl_state.get(item, False))
+    if unchecked_n == 0:
+        st.success(t("all_clear"))
     else:
-        if buses:
-            st.markdown("#### All Buses")
-            for bname, members in buses.items():
-                cap   = capacity.get(bname, DEFAULT_CAPACITY)
-                count = len(members)
-                pct   = count / cap if cap > 0 else 0
-                bar_c = "#d32f2f" if pct >= 0.9 else "#f9a825" if pct >= 0.7 else "#2e7d32"
-                st.markdown(f"""
-                <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #1c1c1c">
-                    <span style="font-family:'Barlow Condensed',sans-serif;font-size:1rem;text-transform:uppercase;min-width:120px">{bname}</span>
-                    <div style="flex:1;background:#1c1c1c;border-radius:3px;height:5px;overflow:hidden">
-                        <div style="width:{int(min(pct,1)*100)}%;height:100%;background:{bar_c};border-radius:3px"></div>
-                    </div>
-                    <span style="font-size:.8rem;color:#6b6b6b;min-width:60px;text-align:right">{count}/{cap}</span>
-                </div>""", unsafe_allow_html=True)
-        else:
-            st.info(t("no_buses"))
+        st.warning(t("missing_checks", n=unchecked_n))
 
+    reset_col, _ = st.columns([1, 3])
+    with reset_col:
+        if st.button("🔄 Reset Checklist", key="cl_reset"):
+            st.session_state.checklist_state = {}
+            st.rerun()
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# PAGE: ANALYTICS
-# ═══════════════════════════════════════════════════════════════════════════════
-elif page == "analytics":
-    st.markdown(f"### 📈 {t('analytics_title')}")
+    st.markdown("---")
 
-    if not buses or total_members == 0:
+    # ── Absent Members (from Roll Call) ───────────────────────────────────────
+    st.markdown(f"#### ⚠️ {t('absent_members')}")
+    rc_state = st.session_state.get("rollcall_state", {})
+
+    if not buses:
         st.info(t("no_buses"))
     else:
-        avg_occ = int(total_members / total_cap * 100) if total_cap > 0 else 0
+        any_absent = False
+        for bname, members in buses.items():
+            rc = rc_state.get(bname, {})
+            absent = [m for m in members if not rc.get(m["name"], False)]
+            if absent:
+                any_absent = True
+                st.markdown(f'<div class="travel-card"><div class="travel-card-title">🚌 {bname} — {len(absent)} absent</div>', unsafe_allow_html=True)
+                for m in absent:
+                    phone_html = f' &nbsp; 📞 <span style="color:#64b5f6">{m["phone"]}</span>' if m.get("phone") else ""
+                    st.markdown(f'<div class="absent-row">❌ <b>{m["name"]}</b> <span style="color:#555;font-size:.78rem">[{m.get("role","Member")}]</span>{phone_html}</div>', unsafe_allow_html=True)
+                st.markdown('</div>', unsafe_allow_html=True)
 
-        kpi_html = '<div class="stat-grid">'
-        for num, label, cls in [
-            (f"{avg_occ}%", t("avg_occupancy"),    "stat-blue"),
-            (total_cap,     "Total Capacity",       "stat-gold"),
-            (total_members, t("total_members"),     "stat-green"),
-            (total_buses_n, t("total_buses"),       ""),
-        ]:
-            kpi_html += f'<div class="stat-card {cls}"><div class="stat-num">{num}</div><div class="stat-label">{label}</div></div>'
-        kpi_html += '</div>'
-        st.markdown(kpi_html, unsafe_allow_html=True)
+        if not any_absent:
+            st.success(t("rollcall_complete"))
+        else:
+            st.caption("Run Roll Call first if counts look wrong.")
 
-        st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("---")
 
-        st.markdown("#### Occupancy per Bus")
+    # ── Departure Summary per Bus ─────────────────────────────────────────────
+    st.markdown(f"#### 🚌 Fleet Ready Status")
+    if buses:
         for bname, members in buses.items():
             cap   = capacity.get(bname, DEFAULT_CAPACITY)
             count = len(members)
-            pct   = count / cap if cap > 0 else 0
-            c     = "#d32f2f" if pct >= 0.9 else "#f9a825" if pct >= 0.6 else "#2e7d32"
+            rc    = rc_state.get(bname, {})
+            bon   = sum(1 for m in members if rc.get(m["name"], False))
+            pct   = bon / count if count else 0
+            color = "#2e7d32" if pct >= 1.0 else "#f9a825" if pct >= 0.5 else "#d32f2f"
             st.markdown(f"""
-            <div class="a-bar-wrap">
-                <div class="a-bar-label">{bname} — {count}/{cap} ({int(pct*100)}%)</div>
-                <div class="a-bar-bg"><div class="a-bar-fill" style="width:{int(min(pct,1)*100)}%;background:{c}"></div></div>
+            <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #1c1c1c">
+                <span style="font-family:'Barlow Condensed',sans-serif;font-size:1rem;text-transform:uppercase;min-width:130px">{bname}</span>
+                <div style="flex:1;background:#1c1c1c;border-radius:3px;height:6px;overflow:hidden">
+                    <div style="width:{int(min(pct,1)*100)}%;height:100%;background:{color};border-radius:3px"></div>
+                </div>
+                <span style="font-size:.82rem;color:#6b6b6b;min-width:80px;text-align:right">{bon}/{count} boarded</span>
             </div>""", unsafe_allow_html=True)
 
-        st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("---")
 
-        st.markdown(f"#### {t('most_roles')}")
-        role_counts: dict = {}
-        for mems in buses.values():
-            for m in mems:
-                r = m.get("role", "Member")
-                role_counts[r] = role_counts.get(r, 0) + 1
-        max_r = max(role_counts.values()) if role_counts else 1
-        role_colors = {"Leader":"#f9a825","Driver":"#64b5f6","قائد":"#f9a825","سائق":"#64b5f6"}
-        for role, cnt in sorted(role_counts.items(), key=lambda x: -x[1]):
-            rc = cnt / max_r
-            rc_color = role_colors.get(role, "#2e7d32")
-            st.markdown(f"""
-            <div class="a-bar-wrap">
-                <div class="a-bar-label">{role} — {cnt}</div>
-                <div class="a-bar-bg"><div class="a-bar-fill" style="width:{int(rc*100)}%;background:{rc_color}"></div></div>
-            </div>""", unsafe_allow_html=True)
-
-        st.markdown("<br>", unsafe_allow_html=True)
-
-        st.markdown(f"#### {t('timeline')}")
-        date_counts: dict = {}
-        for mems in buses.values():
-            for m in mems:
-                d = m.get("added", "")[:10]
-                if d:
-                    date_counts[d] = date_counts.get(d, 0) + 1
-        if date_counts:
-            df_tl = pd.DataFrame(sorted(date_counts.items()), columns=["Date", "Members Added"])
-            st.dataframe(df_tl, use_container_width=True, hide_index=True)
-        else:
-            st.info("No timeline data yet.")
+    # ── Trip Notes ────────────────────────────────────────────────────────────
+    st.markdown(f"#### 📝 {t('trip_notes')}")
+    trip_note_val = trip_info.get("notes", "")
+    new_notes = st.text_area(t("trip_notes"), value=trip_note_val, height=100,
+                              key="trip_notes_area", label_visibility="collapsed")
+    if st.button(t("save_trip_notes"), key="tn_save"):
+        st.session_state.trip_info["notes"] = new_notes
+        log_audit("TRIP_NOTES", "Trip notes updated")
+        st.success(t("trip_notes_saved"))
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -1560,23 +1408,26 @@ elif page == "analytics":
 elif page == "settings":
     st.markdown(f"### ⚙️ {t('settings_title')}")
 
+    # ── Change MY Password ────────────────────────────────────────────────────
     with st.expander(f"🔑 {t('change_password')}", expanded=False):
         cur_pw  = st.text_input(t("current_password"), type="password", key="cp_cur")
         new_pw  = st.text_input(t("new_password"),     type="password", key="cp_new")
         conf_pw = st.text_input(t("confirm_password"), type="password", key="cp_conf")
         if st.button(t("save_password"), key="cp_save"):
-            stored = st.session_state.get("admin_pw_hash", ADMIN_PASSWORD_HASH)
-            if not verify_password(cur_pw, stored):
+            me = current_user()
+            if not verify_password(cur_pw, admins[me]):
                 st.error(t("password_wrong"))
             elif new_pw != conf_pw:
                 st.error(t("password_mismatch"))
             elif len(new_pw) < 6:
                 st.error("Password must be at least 6 characters.")
             else:
-                st.session_state.admin_pw_hash = hash_password(new_pw)
-                log_audit("CHANGE_PASSWORD", "Admin changed password")
+                admins[me] = hash_password(new_pw)
+                save_data(data)
+                log_audit("CHANGE_PASSWORD", f"{me} changed their password")
                 st.success(t("password_changed"))
 
+    # ── Session Timeout ───────────────────────────────────────────────────────
     with st.expander("⏱ Session Timeout", expanded=False):
         cur_to = st.session_state.get("session_timeout_minutes", SESSION_TIMEOUT_MINUTES)
         new_to = st.number_input(t("session_timeout"), min_value=5, max_value=240, value=cur_to, key="st_timeout")
@@ -1584,6 +1435,55 @@ elif page == "settings":
             st.session_state.session_timeout_minutes = int(new_to)
             st.success(f"Session timeout set to {new_to} minutes.")
 
+    # ── Admin Management (superadmin only) ────────────────────────────────────
+    if is_superadmin():
+        st.markdown("---")
+        st.markdown(f"### 👥 {t('admin_mgmt')}")
+
+        # Current admins list
+        st.markdown(f"**{t('admins_list')}**")
+        for uname in list(admins.keys()):
+            badge = f'<span class="badge badge-gold">{t("superadmin_badge")}</span>' if uname == SUPERADMIN_USERNAME else ""
+            st.markdown(f'<div class="admin-row"><span>👤 {uname} {badge}</span></div>', unsafe_allow_html=True)
+
+        st.markdown("<br>", unsafe_allow_html=True)
+
+        # Add admin
+        with st.expander(f"➕ {t('add_admin')}", expanded=False):
+            na_user = st.text_input(t("new_admin_user"), key="na_user")
+            na_pass = st.text_input(t("new_admin_pass"), type="password", key="na_pass")
+            if st.button(t("add_admin"), key="na_create"):
+                uname_clean = na_user.strip().lower()
+                if not uname_clean or not na_pass:
+                    st.warning("Enter both username and password.")
+                elif uname_clean in admins:
+                    st.error(t("admin_exists"))
+                elif len(na_pass) < 6:
+                    st.error("Password must be at least 6 characters.")
+                else:
+                    admins[uname_clean] = hash_password(na_pass)
+                    save_data(data)
+                    log_audit("ADD_ADMIN", f"Superadmin added '{uname_clean}'")
+                    st.success(t("admin_created", u=uname_clean))
+                    st.rerun()
+
+        # Remove admin
+        removable = [u for u in admins if u != SUPERADMIN_USERNAME]
+        if removable:
+            with st.expander(f"🗑️ {t('remove_admin')}", expanded=False):
+                rem_sel = st.selectbox(t("select_admin"), removable, key="ra_sel")
+                if st.button(t("remove_admin"), key="ra_btn"):
+                    if rem_sel == current_user():
+                        st.error(t("cannot_remove_self"))
+                    else:
+                        del admins[rem_sel]
+                        save_data(data)
+                        log_audit("REMOVE_ADMIN", f"Superadmin removed '{rem_sel}'")
+                        st.success(t("admin_removed", u=rem_sel))
+                        st.rerun()
+
+    # ── Delete Bus ────────────────────────────────────────────────────────────
+    st.markdown("---")
     with st.expander(f"🗑️ {t('delete_bus')}", expanded=False):
         if buses:
             del_b = st.selectbox(t("select_bus_delete"), list(buses.keys()), key="st_del_sel")
@@ -1607,35 +1507,38 @@ elif page == "settings":
         else:
             st.info(t("no_buses"))
 
+    # ── Audit Log ─────────────────────────────────────────────────────────────
     st.markdown("---")
     st.markdown(f"### 📋 {t('audit_log')}")
     all_audit = load_audit()
     if all_audit:
         df_audit = pd.DataFrame(all_audit)
         st.dataframe(df_audit, use_container_width=True, hide_index=True)
-        st.download_button(
-            "⬇ Download Audit Log",
-            data=df_audit.to_csv(index=False).encode("utf-8"),
-            file_name=f"audit_{datetime.now().strftime('%Y%m%d')}.csv",
-            mime="text/csv",
-        )
+        st.download_button("⬇ Download Audit Log",
+                           data=df_audit.to_csv(index=False).encode("utf-8"),
+                           file_name=f"audit_{datetime.now().strftime('%Y%m%d')}.csv",
+                           mime="text/csv")
     else:
         st.caption("No audit entries yet.")
 
-    st.markdown("---")
-    st.markdown(f"### ⚠️ {t('danger_zone')}")
-    with st.expander(t("clear_all_data"), expanded=False):
-        st.warning("This will permanently delete all buses and members. There is no undo.")
-        confirm_txt = st.text_input(t("confirm_clear"), key="dz_confirm")
-        if st.button(t("clear_all_data"), key="dz_btn"):
-            if confirm_txt == "CONFIRM":
-                data["buses"] = {}
-                data["capacity"] = {}
-                st.session_state.data = data
-                st.session_state.rollcall_state = {}
-                save_data(data)
-                log_audit("CLEAR_ALL_DATA", "All data wiped by admin")
-                st.success(t("data_cleared"))
-                st.rerun()
-            else:
-                st.error("Type CONFIRM exactly to proceed.")
+    # ── Danger Zone (superadmin only) ─────────────────────────────────────────
+    if is_superadmin():
+        st.markdown("---")
+        st.markdown(f"### ⚠️ {t('danger_zone')}")
+        with st.expander(t("clear_all_data"), expanded=False):
+            st.warning("This will permanently delete all buses and members. There is no undo.")
+            confirm_txt = st.text_input(t("confirm_clear"), key="dz_confirm")
+            if st.button(t("clear_all_data"), key="dz_btn"):
+                if confirm_txt == "CONFIRM":
+                    data["buses"]    = {}
+                    data["capacity"] = {}
+                    st.session_state.data = data
+                    st.session_state.rollcall_state  = {}
+                    st.session_state.checklist_state = {}
+                    st.session_state.trip_info       = {}
+                    save_data(data)
+                    log_audit("CLEAR_ALL_DATA", "All data wiped by superadmin")
+                    st.success(t("data_cleared"))
+                    st.rerun()
+                else:
+                    st.error("Type CONFIRM exactly to proceed.")
