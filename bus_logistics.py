@@ -22,7 +22,7 @@ st.set_page_config(
     page_title="Bus Logistics Manager | مدير النقل",
     page_icon="🚌",
     layout="wide",
-    initial_sidebar_state="expanded",   # sidebar slides open by default
+    initial_sidebar_state="expanded",
 )
 
 # ─── Translations ─────────────────────────────────────────────────────────────
@@ -119,6 +119,8 @@ T = {
         "rollcall_progress":"{b} / {t} boarded",
         "rollcall_complete":"🎉 All aboard!",
         "rc_export":        "⬇ Export Roll Call CSV",
+        "rc_search_label":  "Search members in this bus…",
+        "rc_search_placeholder": "Type a name to filter…",
         "analytics_title":  "Fleet Analytics",
         "avg_occupancy":    "Avg Occupancy",
         "most_roles":       "Role Distribution",
@@ -241,6 +243,8 @@ T = {
         "rollcall_progress":"{b} / {t} صعدوا",
         "rollcall_complete":"🎉 الجميع على متن الحافلة!",
         "rc_export":        "⬇ تصدير CSV",
+        "rc_search_label":  "ابحث عن الأعضاء في هذه الحافلة…",
+        "rc_search_placeholder": "اكتب اسماً للتصفية…",
         "analytics_title":  "تحليلات الأسطول",
         "avg_occupancy":    "متوسط الإشغال",
         "most_roles":       "توزيع الأدوار",
@@ -274,9 +278,12 @@ T = {
 }
 
 # ─── Global CSS ───────────────────────────────────────────────────────────────
+# FIX: The sidebar ALWAYS stays LTR in layout/positioning (Streamlit hardcodes
+# it to slide from the left). RTL direction is applied only to the main content
+# area via the [data-testid="stMain"] selector and the .rtl-content wrapper.
 def inject_css(is_rtl: bool):
-    dir_attr  = "rtl" if is_rtl else "ltr"
     text_side = "right" if is_rtl else "left"
+    content_dir = "rtl" if is_rtl else "ltr"
     st.markdown(f"""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800&family=Barlow+Condensed:wght@400;500;600;700&display=swap');
@@ -304,11 +311,11 @@ def inject_css(is_rtl: bool):
     --radius-sm:  6px;
 }}
 
+/* ── Base: font + background only (NO direction here — avoids flipping sidebar) */
 html, body, [class*="css"] {{
     font-family: 'Tajawal', 'Barlow Condensed', sans-serif;
     background: var(--bg) !important;
     color: var(--white) !important;
-    direction: {dir_attr};
 }}
 h1,h2,h3,h4,h5 {{
     font-family: 'Barlow Condensed', 'Tajawal', sans-serif;
@@ -317,23 +324,28 @@ h1,h2,h3,h4,h5 {{
 }}
 .stApp {{ background: var(--bg) !important; }}
 
-/* ── Hide default Streamlit chrome ── */
-#MainMenu, footer {{ visibility: hidden; }}
-header[data-testid="stHeader"] {{ background: transparent !important; }}
-
-/* ── Sidebar ── */
+/* ── SIDEBAR: always LTR, always slides from left ── */
 [data-testid="stSidebar"] {{
+    direction: ltr !important;
     background: var(--surface) !important;
     border-right: 1px solid var(--border) !important;
 }}
 [data-testid="stSidebar"] > div:first-child {{
     padding-top: 1rem;
+    direction: ltr !important;
 }}
-/* Sidebar toggle button (hamburger) */
+
+/* ── MAIN CONTENT: RTL only here when Arabic is active ── */
+[data-testid="stMain"],
+[data-testid="stMainBlockContainer"] {{
+    direction: {content_dir} !important;
+}}
+
+/* ── Hide default Streamlit chrome ── */
+#MainMenu, footer {{ visibility: hidden; }}
+header[data-testid="stHeader"] {{ background: transparent !important; }}
 [data-testid="stSidebarNav"] {{ display: none; }}
-button[kind="header"] {{
-    color: var(--white) !important;
-}}
+button[kind="header"] {{ color: var(--white) !important; }}
 
 /* ── Custom scrollbar ── */
 ::-webkit-scrollbar {{ width: 4px; height: 4px; }}
@@ -363,13 +375,13 @@ button[kind="header"] {{
     border-color: var(--red) !important;
 }}
 
-/* ── Nav buttons inside sidebar ── */
+/* ── Nav buttons inside sidebar (always LTR layout) ── */
 .nav-btn > button {{
     background: transparent !important;
     border: none !important;
     border-radius: var(--radius-sm) !important;
     color: var(--muted2) !important;
-    text-align: {text_side} !important;
+    text-align: left !important;
     padding: .55rem 1rem !important;
     font-size: .95rem !important;
     transition: all .15s !important;
@@ -549,6 +561,23 @@ hr {{ border-color: var(--border) !important; margin: 10px 0 !important; }}
 .rc-pending   {{ background: transparent; }}
 .rc-name      {{ font-size: .95rem; font-weight: 500; flex: 1; }}
 .rc-name.done {{ text-decoration: line-through; color: var(--muted); }}
+
+/* ── Component: Roll Call search box ── */
+.rc-search-wrap {{
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius);
+    padding: 10px 14px;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}}
+.rc-search-icon {{
+    font-size: 1rem;
+    color: var(--muted);
+    flex-shrink: 0;
+}}
 
 /* ── Component: Analytics bar ── */
 .a-bar-wrap {{ margin-bottom: 10px; }}
@@ -881,6 +910,8 @@ if not check_session():
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # AUTHENTICATED — SIDEBAR
+# Note: sidebar content is always rendered LTR (Streamlit slides from left).
+# We do not apply `direction:rtl` inside the sidebar — only in the main area.
 # ═══════════════════════════════════════════════════════════════════════════════
 with st.sidebar:
 
@@ -892,7 +923,7 @@ with st.sidebar:
         <div class="sidebar-brand-sub">{t('app_subtitle')}</div>
     </div>""", unsafe_allow_html=True)
 
-    # ── Language toggle (on every page via sidebar) ───────────────────────────
+    # ── Language toggle ───────────────────────────────────────────────────────
     st.markdown(f'<div class="sidebar-section">{t("lang_label")}</div>', unsafe_allow_html=True)
     lc1, lc2 = st.columns(2)
     with lc1:
@@ -907,7 +938,7 @@ with st.sidebar:
     st.markdown('<div class="security-notice">🔐 Secured — All actions logged</div>', unsafe_allow_html=True)
 
     # ── Navigation ────────────────────────────────────────────────────────────
-    st.markdown(f'<div class="sidebar-section">Navigation</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sidebar-section">Navigation</div>', unsafe_allow_html=True)
 
     nav_pages = [
         ("dashboard", "📊", t("page_dashboard")),
@@ -1060,7 +1091,6 @@ st.markdown(f"""
 # ═══════════════════════════════════════════════════════════════════════════════
 if page == "dashboard":
 
-    # 2×2 stat grid
     stats = [
         (total_buses_n, t("total_buses"),   ""),
         (total_members, t("total_members"), ""),
@@ -1116,7 +1146,6 @@ elif page == "buses":
     if not buses:
         st.info(t("no_buses"))
     else:
-        # Delete bus expander
         with st.expander(f"🗑️ {t('delete_bus')}", expanded=False):
             del_sel = st.selectbox(t("select_bus_delete"), list(buses.keys()), key="del_bus_sel")
             if st.button(t("delete_bus"), key="del_bus_btn"):
@@ -1148,7 +1177,6 @@ elif page == "buses":
                 pct     = count / cap if cap > 0 else 0
                 is_full = count >= cap
 
-                # Info + Add form
                 col_info, col_add = st.columns([1, 1])
                 with col_info:
                     badge_cls = "badge-full" if is_full else "badge-ok"
@@ -1186,7 +1214,6 @@ elif page == "buses":
                             st.success(t("added_success", n=name_clean))
                             st.rerun()
 
-                # Capacity editor
                 with st.expander(t("edit_capacity")):
                     new_cap_v = st.number_input(t("max_seats"), min_value=1, max_value=500, value=cap, key=f"cap_{bname}")
                     if st.button(t("update_capacity"), key=f"savecap_{bname}"):
@@ -1197,7 +1224,6 @@ elif page == "buses":
                         st.success(t("cap_updated"))
                         st.rerun()
 
-                # Member list
                 st.markdown(f"#### 👥 {t('members_count', n=count, c=cap)}")
                 if not members:
                     st.info(t("no_members_yet"))
@@ -1227,7 +1253,6 @@ elif page == "buses":
                                     log_audit("REMOVE_MEMBER", f"Removed '{removed}' from '{bname}'")
                                     st.rerun()
 
-        # All members tab
         with tabs[-1]:
             st.markdown(f"#### 📋 {t('all_members_title')}")
             flat = all_members_flat(buses)
@@ -1277,7 +1302,7 @@ elif page == "rollcall":
             {complete_html}
         </div>""", unsafe_allow_html=True)
 
-        # Controls
+        # Controls row
         ca, cb, cc = st.columns([1, 1, 2])
         with ca:
             if st.button(t("mark_all_boarded"), use_container_width=True, key="rc_all"):
@@ -1296,7 +1321,7 @@ elif page == "rollcall":
                     "Role": m.get("role", ""),
                     "Phone": m.get("phone", ""),
                     "Boarded": "✅" if rc.get(m["name"]) else "❌",
-                }  for m in members]
+                } for m in members]
                 rc_csv = pd.DataFrame(rc_rows).to_csv(index=False, encoding="utf-8-sig").encode("utf-8-sig")
                 st.download_button(
                     t("rc_export"), data=rc_csv,
@@ -1306,8 +1331,38 @@ elif page == "rollcall":
 
         st.markdown("<br>", unsafe_allow_html=True)
 
-        pending  = [m for m in members if not rc.get(m["name"])]
-        boarded_ = [m for m in members if     rc.get(m["name"])]
+        # ── Search / filter bar ────────────────────────────────────────────────
+        # Lets the admin quickly find a specific member during boarding
+        rc_search = st.text_input(
+            t("rc_search_label"),
+            placeholder=t("rc_search_placeholder"),
+            key="rc_search_input",
+            label_visibility="collapsed",
+        )
+        st.markdown(
+            f'<div style="font-size:.7rem;color:#555;margin:-8px 0 10px;padding-left:2px">🔍 {t("rc_search_label")}</div>',
+            unsafe_allow_html=True,
+        )
+
+        def _rc_match(m: dict) -> bool:
+            """Return True if this member matches the current search query."""
+            if not rc_search:
+                return True
+            q = rc_search.strip().lower()
+            return (
+                q in m["name"].lower()
+                or q in m.get("role", "").lower()
+                or q in m.get("phone", "").lower()
+            )
+
+        # Split into pending / boarded, applying the search filter
+        pending  = [m for m in members if not rc.get(m["name"]) and _rc_match(m)]
+        boarded_ = [m for m in members if     rc.get(m["name"]) and _rc_match(m)]
+
+        # If there is an active search, show counts relative to the filter
+        if rc_search:
+            total_shown = len(pending) + len(boarded_)
+            st.caption(f"🔎 {total_shown} result(s) for "{rc_search.strip()}"")
 
         if pending:
             st.markdown(f"**⏳ {t('not_boarded')} ({len(pending)})**")
@@ -1339,6 +1394,9 @@ elif page == "rollcall":
                         <span class="rc-name done">{m['name']}</span>
                         <span style="font-size:.7rem;color:#66bb6a;margin-left:8px">{m.get('role','')}</span>
                     </div>""", unsafe_allow_html=True)
+
+        if rc_search and not pending and not boarded_:
+            st.info(t("no_members_found"))
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -1404,7 +1462,6 @@ elif page == "analytics":
     else:
         avg_occ = int(total_members / total_cap * 100) if total_cap > 0 else 0
 
-        # KPI row
         kpi_html = '<div class="stat-grid">'
         for num, label, cls in [
             (f"{avg_occ}%", t("avg_occupancy"),    "stat-blue"),
@@ -1418,7 +1475,6 @@ elif page == "analytics":
 
         st.markdown("<br>", unsafe_allow_html=True)
 
-        # Occupancy per bus
         st.markdown("#### Occupancy per Bus")
         for bname, members in buses.items():
             cap   = capacity.get(bname, DEFAULT_CAPACITY)
@@ -1433,7 +1489,6 @@ elif page == "analytics":
 
         st.markdown("<br>", unsafe_allow_html=True)
 
-        # Role distribution
         st.markdown(f"#### {t('most_roles')}")
         role_counts: dict = {}
         for mems in buses.values():
@@ -1453,7 +1508,6 @@ elif page == "analytics":
 
         st.markdown("<br>", unsafe_allow_html=True)
 
-        # Timeline
         st.markdown(f"#### {t('timeline')}")
         date_counts: dict = {}
         for mems in buses.values():
@@ -1474,7 +1528,6 @@ elif page == "analytics":
 elif page == "settings":
     st.markdown(f"### ⚙️ {t('settings_title')}")
 
-    # Change password
     with st.expander(f"🔑 {t('change_password')}", expanded=False):
         cur_pw  = st.text_input(t("current_password"), type="password", key="cp_cur")
         new_pw  = st.text_input(t("new_password"),     type="password", key="cp_new")
@@ -1492,7 +1545,6 @@ elif page == "settings":
                 log_audit("CHANGE_PASSWORD", "Admin changed password")
                 st.success(t("password_changed"))
 
-    # Session timeout
     with st.expander("⏱ Session Timeout", expanded=False):
         cur_to = st.session_state.get("session_timeout_minutes", SESSION_TIMEOUT_MINUTES)
         new_to = st.number_input(t("session_timeout"), min_value=5, max_value=240, value=cur_to, key="st_timeout")
@@ -1500,7 +1552,6 @@ elif page == "settings":
             st.session_state.session_timeout_minutes = int(new_to)
             st.success(f"Session timeout set to {new_to} minutes.")
 
-    # Delete bus
     with st.expander(f"🗑️ {t('delete_bus')}", expanded=False):
         if buses:
             del_b = st.selectbox(t("select_bus_delete"), list(buses.keys()), key="st_del_sel")
@@ -1524,7 +1575,6 @@ elif page == "settings":
         else:
             st.info(t("no_buses"))
 
-    # Full audit log
     st.markdown("---")
     st.markdown(f"### 📋 {t('audit_log')}")
     all_audit = load_audit()
@@ -1540,7 +1590,6 @@ elif page == "settings":
     else:
         st.caption("No audit entries yet.")
 
-    # Danger zone
     st.markdown("---")
     st.markdown(f"### ⚠️ {t('danger_zone')}")
     with st.expander(t("clear_all_data"), expanded=False):
